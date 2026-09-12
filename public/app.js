@@ -16,7 +16,9 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
   const state = {
     front: null,
     back: null,
-    frontOnly: true, // armar el pase solo con el frente (por defecto; el dorso sigue sirviendo para leer el código)
+    frontOnly: true,    // armar el pase solo con el frente (por defecto; el dorso sigue sirviendo para leer el código)
+    cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
+    cuilAuto: false,
     scanned: false,   // ya se leyó el PDF417 en alguna de las dos caras
     fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', nacionalidad: '', cuil: '', raw: '' },
   };
@@ -229,15 +231,21 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
    * El formato nuevo cierra con 3 dígitos: los 2 del prefijo del CUIL y el dígito verificador.
    * Reconstruimos el CUIL completo y lo validamos con el módulo 11; si no cierra, no lo mostramos.
    */
+  const CUIL_WEIGHTS = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  /** Dígito verificador módulo 11. Devuelve `null` cuando el resto es 1: ahí el prefijo pasa a 23. */
+  function cuilCheckDigit(pre, n) {
+    const sum = (pre + n).split('').reduce((a, d, i) => a + Number(d) * CUIL_WEIGHTS[i], 0);
+    const r = sum % 11;
+    return r === 0 ? 0 : (r === 1 ? null : 11 - r);
+  }
+
   function cuilFrom(tail, dni) {
     const t = String(tail || '').trim(), n = String(dni || '').padStart(8, '0');
     if (!/^\d{3}$/.test(t) || !/^\d{8}$/.test(n)) return '';
     const pre = t.slice(0, 2), dv = Number(t[2]);
     if (!['20', '23', '24', '27', '30', '33', '34'].includes(pre)) return '';
-    const w = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-    const sum = (pre + n).split('').reduce((a, d, i) => a + Number(d) * w[i], 0);
-    const r = sum % 11;
-    if (r > 1 && 11 - r !== dv) return ''; // con resto 0 o 1 hay casos especiales: aceptamos lo que diga el código
+    const d = cuilCheckDigit(pre, n);
+    if (d !== null && d !== dv) return ''; // con resto 1 hay casos especiales: aceptamos lo que diga el código
     return `${pre}-${n}-${dv}`;
   }
   const onlyLetter = (s) => (/^[A-Za-z]$/.test(String(s || '').trim()) ? String(s).trim().toUpperCase() : '');
@@ -301,6 +309,94 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     return null;
   }
 
+  // ---------- Fechas: separadores automáticos ----------
+  // HTML no tiene máscaras, y <input type="date"> en iOS abre una rueda incómoda para una fecha de nacimiento
+  // (además su valor es AAAA-MM-DD y el DNI usa DD/MM/AAAA). Se escriben solo números y las barras se ponen solas.
+  const dateIds = ['nacimiento', 'emision', 'vencimiento'];
+
+  const maskDate = (v) => {
+    const d = String(v).replace(/\D/g, '').slice(0, 8);
+    return [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean).join('/');
+  };
+
+  /** Fecha real: rechaza 31/02, el mes 13 y los años fuera de rango. Vacío es válido: todos los campos son opcionales. */
+  function dateError(v) {
+    const s = String(v).trim();
+    if (!s) return '';
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s);
+    if (!m) return 'Completá DD/MM/AAAA';
+    const dd = Number(m[1]), mm = Number(m[2]), yyyy = Number(m[3]);
+    const d = new Date(Date.UTC(yyyy, mm - 1, dd));
+    if (d.getUTCDate() !== dd || d.getUTCMonth() !== mm - 1 || d.getUTCFullYear() !== yyyy) return 'Esa fecha no existe';
+    if (yyyy < 1900 || yyyy > 2100) return 'Revisá el año';
+    return '';
+  }
+
+  /** Mensaje debajo de un campo. `kind`: 'err' (rojo) o 'note' (gris). */
+  function setFieldMsg(el, msg, kind = 'err') {
+    el.setAttribute('aria-invalid', msg && kind === 'err' ? 'true' : 'false');
+    let node = el.parentElement.querySelector('.err, .note');
+    if (!msg) { node?.remove(); return; }
+    if (!node) { node = document.createElement('span'); el.parentElement.append(node); }
+    node.className = kind;
+    node.textContent = msg;
+  }
+
+  function wireDateField(el) {
+    // Borrar encima de una barra tiene que llevarse también el dígito anterior.
+    el.addEventListener('beforeinput', (e) => {
+      if (e.inputType !== 'deleteContentBackward' || el.selectionStart !== el.selectionEnd) return;
+      const i = el.selectionStart;
+      if (i > 1 && el.value[i - 1] === '/') {
+        e.preventDefault();
+        el.setRangeText('', i - 2, i, 'end');
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+    el.addEventListener('input', () => {
+      const caret = el.selectionStart ?? el.value.length;
+      const digitsBefore = el.value.slice(0, caret).replace(/\D/g, '').length;
+      const formatted = maskDate(el.value);
+      if (formatted !== el.value) {
+        el.value = formatted;
+        let pos = 0, seen = 0;
+        while (pos < formatted.length && seen < digitsBefore) { if (/\d/.test(formatted[pos])) seen += 1; pos += 1; }
+        try { el.setSelectionRange(pos, pos); } catch { /* algunos navegadores no dejan mover el cursor acá */ }
+      }
+      // Mientras escribe no lo retamos: el error aparece recién con la fecha completa o al salir del campo.
+      setFieldMsg(el, el.value.length === 10 ? dateError(el.value) : '');
+    });
+    el.addEventListener('blur', () => setFieldMsg(el, dateError(el.value)));
+  }
+
+  // ---------- CUIL calculado ----------
+  /**
+   * El CUIL sale de una fórmula pública, no de un padrón: prefijo por sexo (20 varón / 27 mujer) + DNI +
+   * dígito verificador módulo 11, y si el resto da 1 el prefijo pasa a 23. Comprobado el 2026-09-12 contra el
+   * generador oficial de hjunin.ms.gba.gov.ar: 8 de 8 casos iguales, incluido el salto a 23.
+   * Es un valor probable: ANSES puede haber asignado otro prefijo en casos raros (duplicados, extranjeros).
+   */
+  function cuilFromDniSexo(dni, sexo) {
+    const n = onlyDigits(dni).padStart(8, '0');
+    if (n.length !== 8) return '';
+    let pre = { M: '20', F: '27' }[onlyLetter(sexo)];
+    if (!pre) return '';
+    let d = cuilCheckDigit(pre, n);
+    if (d === null) { pre = '23'; d = cuilCheckDigit(pre, n); }
+    return d === null ? '' : `${pre}-${n}-${d}`;
+  }
+
+  function maybeFillCuil() {
+    const el = $('f_cuil');
+    if (state.cuilTouched || el.value.trim()) return;
+    const c = cuilFromDniSexo(state.fields.dni, state.fields.sexo);
+    if (!c) return;
+    el.value = c;
+    state.fields.cuil = c;
+    state.cuilAuto = true;
+    setFieldMsg(el, 'Calculado con el DNI y el sexo', 'note');
+  }
+
   // ---------- UI ----------
   const fieldIds = ['apellido', 'nombres', 'dni', 'sexo', 'nacimiento', 'ejemplar', 'tramite', 'emision', 'vencimiento', 'nacionalidad', 'cuil', 'raw'];
 
@@ -317,6 +413,7 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
 
   function readForm() {
     for (const k of fieldIds) state.fields[k] = $('f_' + k).value.trim();
+    maybeFillCuil();
     renderPreviewFields();
     updateCta();
   }
@@ -524,6 +621,8 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
   $('camPick').addEventListener('click', () => { const w = cam.which; closeCamera(); $(w + 'File').click(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('cam').hidden) closeCamera(); });
   window.addEventListener('resize', () => { for (const w of ['front', 'back']) if (state[w]) scheduleRender(w); });
+  for (const id of dateIds) wireDateField($('f_' + id));
+  $('f_cuil').addEventListener('input', () => { state.cuilTouched = true; state.cuilAuto = false; setFieldMsg($('f_cuil'), ''); });
   $('dataForm').addEventListener('input', readForm);
   $('f_raw').addEventListener('change', () => { const p = parseDni($('f_raw').value); if (p) { state.scanned = true; fillForm(p); } });
   $('addBtn').addEventListener('click', submitPass);
