@@ -2,8 +2,8 @@
  * así que acá solo llegan /api/* y lo que no matchea ningún archivo.
  * Nada se persiste. Certificados por secrets en base64: WWDR_PEM_B64, SIGNER_CERT_PEM_B64, SIGNER_KEY_PEM_B64.
  */
-import { createPkpass, parsePassForm, fromBase64 } from '../server/pkpass.mjs';
-import { PASS_ASSETS_B64 } from '../server/pass-assets.mjs';
+import { createPkpass, parsePassForm, fromBase64, signClientManifest } from '../server/pkpass.mjs';
+import { PASS_ASSETS_B64 } from '../public/pass-assets.js';
 
 const ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
 const td = new TextDecoder();
@@ -27,8 +27,18 @@ export default {
     const cfg = { passTypeId: env.PASS_TYPE_ID, teamId: env.TEAM_ID, orgName: env.ORG_NAME || 'DNI en Wallet' };
     try {
       if (req.method === 'GET' && url.pathname === '/api/health') {
-        return json({ ok: true, signing: Boolean(certsFrom(env)), passTypeId: cfg.passTypeId });
+        return json({ ok: true, signing: Boolean(certsFrom(env)), passTypeId: cfg.passTypeId, teamId: cfg.teamId, orgName: cfg.orgName });
       }
+      // Camino principal: el teléfono arma el pase y acá solo se firma el manifest (hashes, sin foto).
+      if (req.method === 'POST' && url.pathname === '/api/sign') {
+        const manifest = await req.text();
+        const signature = await signClientManifest(manifest, certsFrom(env));
+        return new Response(signature, {
+          status: 200,
+          headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(signature.length), 'Cache-Control': 'no-store' },
+        });
+      }
+      // Camino de respaldo: sube la imagen ya armada y el servidor hace todo.
       if (req.method === 'POST' && url.pathname === '/api/pass') {
         const len = Number(req.headers.get('content-length') || 0);
         if (len > MAX_BODY) return text('Body demasiado grande', 413);

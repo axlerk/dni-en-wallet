@@ -1,8 +1,11 @@
 /* DNI en Wallet — frontend en JS puro.
  * Flujo: foto frente → foto dorso (el PDF417 se busca en las dos caras) → encuadre (arrastrar / pellizcar) → revisar datos → strip (frente|dorso) → POST → .pkpass
- * Todo el procesamiento de imagen ocurre en el teléfono. Al servidor solo viaja el pase ya armado para firmarse.
+ * Todo ocurre en el teléfono, incluido el armado del .pkpass: al servidor solo se le manda el manifest (hashes)
+ * para que lo firme con el certificado de Apple. El camino viejo (subir la imagen a /api/pass) queda de respaldo.
  */
-import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
+import { buildPassJson, frontRowFields, COLORS, clean } from './pass-json.js';
+import { buildManifest, zipStore, passSerial, utf8, fromBase64 } from './pkpass-build.js';
+import { PASS_ASSETS_B64 } from './pass-assets.js';
 
 (() => {
   'use strict';
@@ -17,6 +20,7 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     front: null,
     back: null,
     frontOnly: true,    // armar el pase solo con el frente (por defecto; el dorso sigue sirviendo para leer el código)
+    cfg: null,          // passTypeId/teamId/orgName, se piden una vez a /api/health
     scanning: false,    // buscando el PDF417
     building: false,    // armando el pase para Wallet
     cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
@@ -657,24 +661,96 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
 
   // Al tocar "Agregar": armo strips + campos y hago un POST de nivel superior.
   // Safari abre la hoja "Agregar a Wallet" al recibir application/vnd.apple.pkpass.
-  function submitPass() {
+  // ---------- Armar el pase en el teléfono ----------
+  // El pase se arma acá y al servidor solo se le manda el manifest, que son hashes: la foto no sale del teléfono.
+  // Si algo de este camino falla, queda el de antes (POST de la imagen a /api/pass).
+  const PASS_ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
+
+  const canvasBytes = (canvas) => new Promise((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b.arrayBuffer().then((a) => new Uint8Array(a))) : reject(new Error('canvas vacío'))), 'image/png');
+  });
+
+  async function passConfig() {
+    if (state.cfg) return state.cfg;
+    const r = await fetch('api/health', { cache: 'no-store' });
+    const j = await r.json();
+    if (!j.signing) throw new Error('El servidor no tiene certificados');
+    state.cfg = { passTypeId: j.passTypeId, teamId: j.teamId, orgName: j.orgName };
+    return state.cfg;
+  }
+
+  async function buildPassLocally() {
+    const cfg = await passConfig();
+    const f = state.fields;
+    const serial = await passSerial(clean(f.dni), clean(f.ejemplar), cfg.passTypeId);
+    const [s1, s2, s3] = await Promise.all([canvasBytes(composeStrip(1)), canvasBytes(composeStrip(2)), canvasBytes(composeStrip(3))]);
+    const files = {
+      ...PASS_ASSETS,
+      'strip.png': s1,
+      'strip@2x.png': s2,
+      'strip@3x.png': s3,
+      'pass.json': utf8(JSON.stringify(buildPassJson(cfg, f, serial))),
+    };
+    const manifest = await buildManifest(files);
+    const res = await fetch('api/sign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: new TextDecoder().decode(manifest),
+    });
+    if (!res.ok) throw new Error(`firma: ${res.status} ${await res.text()}`);
+    files['manifest.json'] = manifest;
+    files['signature'] = new Uint8Array(await res.arrayBuffer());
+    return { bytes: zipStore(files), serial };
+  }
+
+  /**
+   * Wallet se abre de forma confiable cuando la respuesta llega por red con el Content-Type correcto.
+   * El service worker responde esa navegación con los bytes que armamos acá, sin salir del teléfono.
+   */
+  async function deliverToWallet(bytes, serial) {
+    const sw = navigator.serviceWorker?.controller;
+    if (!sw) throw new Error('sin service worker');
+    const path = `${location.pathname.replace(/[^/]*$/, '')}pkpass/${serial}.pkpass`;
+    await new Promise((resolve, reject) => {
+      const ch = new MessageChannel();
+      ch.port1.onmessage = (e) => (e.data?.ok ? resolve() : reject(new Error('el service worker no aceptó el pase')));
+      setTimeout(() => reject(new Error('el service worker no respondió')), 3000);
+      sw.postMessage({ type: 'pkpass', path, bytes }, [ch.port2]);
+    });
+    location.href = path;
+  }
+
+  /** Camino de respaldo: sube la imagen y el servidor arma y firma. */
+  function submitViaServer() {
+    $('pf_fields').value = JSON.stringify(state.fields);
+    $('pf_strip1x').value = composeStrip(1).toDataURL('image/png');
+    $('pf_strip2x').value = composeStrip(2).toDataURL('image/png');
+    $('pf_strip3x').value = composeStrip(3).toDataURL('image/png');
+    $('passForm').submit();
+  }
+
+  async function submitPass() {
     readForm();
     setStatus($('buildStatus'), '', '');
     state.building = true;
     updateCta();
     try {
-      $('pf_fields').value = JSON.stringify(state.fields);
-      $('pf_strip1x').value = composeStrip(1).toDataURL('image/png');
-      $('pf_strip2x').value = composeStrip(2).toDataURL('image/png');
-      $('pf_strip3x').value = composeStrip(3).toDataURL('image/png');
-      $('passForm').submit();
-      // El POST de nivel superior no vuelve al JS: soltamos el botón cuando Wallet ya tuvo tiempo de abrirse.
-      setTimeout(() => { state.building = false; updateCta(); }, 4000);
+      const { bytes, serial } = await buildPassLocally();
+      await deliverToWallet(bytes, serial);
     } catch (e) {
-      state.building = false;
-      updateCta();
-      setStatus($('buildStatus'), 'No se pudo armar el pase: ' + (e?.message || e), 'bad');
+      // Cualquier tropiezo del camino local cae al de siempre, que ya sabemos que funciona.
+      console.warn('[pase] armado local falló, uso el servidor:', e?.message || e);
+      try {
+        submitViaServer();
+      } catch (e2) {
+        state.building = false;
+        updateCta();
+        setStatus($('buildStatus'), 'No se pudo armar el pase: ' + (e2?.message || e2), 'bad');
+        return;
+      }
     }
+    // El POST de nivel superior no vuelve al JS: soltamos el botón cuando Wallet ya tuvo tiempo de abrirse.
+    setTimeout(() => { state.building = false; updateCta(); }, 4000);
   }
 
   // ---------- Wiring ----------
