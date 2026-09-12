@@ -30,7 +30,8 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
   // El strip se pinta con el mismo color de fondo del pase: la foto queda sin fondo propio, flotando sobre el celeste.
   // Wallet recorta la fila de campos a 4 (probado en iPhone el 2026-09-12: con 6 campos descartó SEXO y REFERENCIA),
   // así que el resto de los datos vive en el dorso del pase, no encima de la foto.
-  const STRIP = { w: 375, h: 123, gap: 3, bg: COLORS.background };
+  // `radius`: mismo redondeo que el recuadro del código de barras que dibuja Wallet abajo del pase (~8 pt).
+  const STRIP = { w: 375, h: 123, gap: 3, radius: 8, bg: COLORS.background };
   const CARD_RATIO = 85.6 / 54; // 1.585…
   const ZOOM = { min: 1, max: 5 };
 
@@ -61,10 +62,28 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     return { sx, sy, vw, vh, s };
   }
 
-  /** Dibuja el recorte de `side` en el rect (x,y,w,h) del contexto. */
-  function drawCrop(ctx, side, x, y, w, h) {
+  /** Camino rectangular con esquinas redondeadas; `roundRect` no está en Safari viejos. */
+  function roundRectPath(ctx, x, y, w, h, r) {
+    const rad = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    if (ctx.roundRect) { ctx.roundRect(x, y, w, h, rad); return; }
+    ctx.moveTo(x + rad, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rad);
+    ctx.arcTo(x + w, y + h, x, y + h, rad);
+    ctx.arcTo(x, y + h, x, y, rad);
+    ctx.arcTo(x, y, x + w, y, rad);
+    ctx.closePath();
+  }
+
+  /** Dibuja el recorte de `side` en el rect (x,y,w,h) del contexto. `radius` redondea las esquinas. */
+  function drawCrop(ctx, side, x, y, w, h, radius = 0) {
     const r = cropRect(side, w, h);
+    if (!radius) { ctx.drawImage(side.img, r.sx, r.sy, r.vw, r.vh, x, y, w, h); return; }
+    ctx.save();
+    roundRectPath(ctx, x, y, w, h, radius);
+    ctx.clip();
     ctx.drawImage(side.img, r.sx, r.sy, r.vw, r.vh, x, y, w, h);
+    ctx.restore();
   }
 
   /** Rectángulo de proporción `ratio` centrado dentro de (x, y, w, h), sin recortar. */
@@ -86,7 +105,7 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     const draw = (side, x, w) => {
       if (!side) return;
       const r = fitRect(x, 0, w, c.height, CARD_RATIO);
-      drawCrop(ctx, side, r.x, r.y, r.w, r.h);
+      drawCrop(ctx, side, r.x, r.y, r.w, r.h, STRIP.radius * scale);
     };
     if (onlyFront()) {
       draw(state.front, 0, c.width);
@@ -278,12 +297,18 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     } catch { return null; }
   }
 
-  async function decodeWithZXing(canvas) {
-    if (!window.ZXing?.BrowserPDF417Reader) return null;
-    const reader = new window.ZXing.BrowserPDF417Reader();
+  /**
+   * Decodifica leyendo el canvas directamente. La otra vía de la librería, decodeFromImageUrl, serializa un PNG
+   * y lo vuelve a decodificar en cada intento, y son 16 intentos por foto (4 escalas × 4 rotaciones).
+   * `reader.decode(canvas)` no sirve: arma su propio canvas de captura con tamaño 0 y tira IndexSizeError.
+   */
+  function decodeWithZXing(canvas) {
+    const Z = window.ZXing;
+    if (!Z?.HTMLCanvasElementLuminanceSource || !Z?.PDF417Reader) return null;
     try {
-      const res = await reader.decodeFromImageUrl(canvas.toDataURL('image/png'));
-      return res?.getText?.() || null;
+      const source = new Z.HTMLCanvasElementLuminanceSource(canvas);
+      const bitmap = new Z.BinaryBitmap(new Z.HybridBinarizer(source));
+      return new Z.PDF417Reader().decode(bitmap)?.getText?.() || null;
     } catch { return null; }
   }
 
@@ -298,7 +323,9 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
         const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
         const swap = rot === 90 || rot === 270;
         c.width = swap ? h : w; c.height = swap ? w : h;
-        const ctx = c.getContext('2d');
+        // willReadFrequently: el decodificador lee todos los píxeles; sin esto cada lectura baja de la GPU y el
+        // barrido de 16 intentos se vuelve varias veces más lento.
+        const ctx = c.getContext('2d', { willReadFrequently: true });
         ctx.translate(c.width / 2, c.height / 2);
         ctx.rotate((rot * Math.PI) / 180);
         ctx.drawImage(img, -w / 2, -h / 2, w, h);
