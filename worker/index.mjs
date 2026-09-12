@@ -32,6 +32,14 @@ export default {
       }
       // Camino principal: el teléfono arma el pase y acá solo entran los campos y los hashes del strip.
       if (req.method === 'POST' && url.pathname === '/api/sign') {
+        // Solo desde nuestra propia página: no frena a curl, pero sí evita que otro sitio use el firmador
+        // desde el navegador de un visitante.
+        const origin = req.headers.get('Origin');
+        if (origin && origin !== url.origin) return text('Origen no permitido', 403);
+        // Freno por IP. Si el binding no está (wrangler dev viejo), seguimos: no es una barrera de seguridad.
+        const ip = req.headers.get('CF-Connecting-IP') || 'sin-ip';
+        const allowed = env.SIGN_LIMITER ? (await env.SIGN_LIMITER.limit({ key: ip })).success : true;
+        if (!allowed) return text('Demasiados pases seguidos, probá en unos segundos', 429);
         const raw = await req.text();
         if (raw.length > 8192) return text('Body demasiado grande', 413);
         let body;

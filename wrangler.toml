@@ -13,6 +13,13 @@ directory = "./public"
 pattern = "dni.onegoodman.studio"
 custom_domain = true
 
+# Freno de abuso: /api/sign firma con nuestro certificado de Apple, así que no queremos que alguien
+# lo use como servicio de firma. Un usuario real genera un pase cada tanto; 6 por IP cada 10 s no molesta.
+[[ratelimits]]
+name = "SIGN_LIMITER"
+namespace_id = "1001"
+simple = { limit = 6, period = 10 }
+
 [vars]
 PASS_TYPE_ID = "pass.studio.onegoodman.dni"
 TEAM_ID = "6L425ZQW3T"
