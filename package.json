@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node server/index.mjs",
     "dev": "node --watch server/index.mjs",
-    "vendor": "node -e \"require('fs').copyFileSync('node_modules/@zxing/library/umd/index.min.js','public/vendor/zxing-library.min.js')\"",
+    "vendor": "node -e \"const fs=require('fs');fs.mkdirSync('public/vendor',{recursive:true});fs.copyFileSync('node_modules/@zxing/library/umd/index.min.js','public/vendor/zxing-library.min.js')\"",
     "postinstall": "npm run vendor"
   },
   "engines": {
