@@ -14,7 +14,7 @@
   const state = {
     front: null,
     back: null,
-    frontOnly: false, // armar el pase solo con el frente
+    frontOnly: true, // armar el pase solo con el frente (por defecto; el dorso sigue sirviendo para leer el código)
     scanned: false,   // ya se leyó el PDF417 en alguna de las dos caras
     fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', nacionalidad: '', cuil: '', raw: '' },
   };
@@ -23,7 +23,11 @@
   // El recorte de cada cara mantiene la proporción real de la tarjeta (ID-1, 85.6×54 mm), así no se corta nada:
   // dos caras entran como 186×117 con una franja de 3 pt arriba y abajo; solo el frente entra como 195×123 centrado.
   // Las franjas se pintan del color de fondo del pase, así que no se ven.
-  const STRIP = { w: 375, h: 123, gap: 3, bg: '#163d66' };
+  // `cap`: franja inferior con el descargo, dentro de la imagen. Wallet recorta la fila de campos a 4 (probado en
+  // iPhone el 2026-09-12: con 2 secondary + 4 auxiliary mostró solo 4 y descartó SEXO y REFERENCIA), así que el
+  // descargo y los datos que no entran arriba se dibujan acá, donde nadie los puede descartar.
+  const STRIP = { w: 375, h: 123, gap: 3, cap: 15, bg: '#74acdf', ink: '#0e273e', inkSoft: 'rgba(14,39,62,.66)' };
+  const FONT = '-apple-system, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif';
   const CARD_RATIO = 85.6 / 54; // 1.585…
   const ZOOM = { min: 1, max: 5 };
 
@@ -69,25 +73,78 @@
   /** True si el pase se arma solo con el frente (por elección o porque todavía no hay dorso). */
   const onlyFront = () => state.frontOnly || !state.back;
 
-  /** Compone el strip: frente | dorso, o solo el frente centrado. */
+  /** Datos que no entran en la fila de campos del pase y se dibujan al lado de la foto. */
+  function panelRows() {
+    const f = state.fields;
+    return [['SEXO', f.sexo], ['CUIL', f.cuil], ['VENCE', f.vencimiento], ['Nº TRÁMITE', f.tramite], ['NACIONALIDAD', f.nacionalidad]]
+      .filter(([, v]) => v).slice(0, 4);
+  }
+
+  function drawPanel(ctx, x, y, w, h, scale) {
+    const rows = panelRows();
+    if (!rows.length || w < 60 * scale) return;
+    const lh = h / rows.length;
+    ctx.save();
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    rows.forEach(([label, value], i) => {
+      const cy = y + lh * i + lh / 2;
+      ctx.fillStyle = STRIP.inkSoft;
+      ctx.font = `700 ${7.5 * scale}px ${FONT}`;
+      ctx.fillText(label, x, cy - 3.5 * scale, w);
+      ctx.fillStyle = STRIP.ink;
+      ctx.font = `600 ${12 * scale}px ${FONT}`;
+      ctx.fillText(value, x, cy + 9.5 * scale, w);
+    });
+    ctx.restore();
+  }
+
+  /**
+   * El descargo va dentro de la imagen para que Wallet no lo pueda descartar.
+   * `lines` permite apilarlo en dos renglones cuando va en la columna angosta, al lado de la foto.
+   */
+  function drawCaption(ctx, cx, cy, maxW, scale, lines) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(14,39,62,.78)';
+    ctx.font = `700 ${7.5 * scale}px ${FONT}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    try { ctx.letterSpacing = `${0.7 * scale}px`; } catch { /* Safari viejo lo ignora */ }
+    const lh = 9 * scale;
+    lines.forEach((t, i) => ctx.fillText(t, cx, cy + (i - (lines.length - 1) / 2) * lh, maxW));
+    ctx.restore();
+  }
+
+  /** Compone el strip: frente | dorso, o solo el frente con los datos extra al lado. */
   function composeStrip(scale) {
     const c = document.createElement('canvas');
     c.width = STRIP.w * scale; c.height = STRIP.h * scale;
     const ctx = c.getContext('2d');
     ctx.fillStyle = STRIP.bg;
     ctx.fillRect(0, 0, c.width, c.height);
-    const draw = (side, slot) => {
+    const draw = (side, x, w, h) => {
       if (!side) return;
-      const r = fitRect(slot.x, 0, slot.w, c.height, CARD_RATIO);
+      const r = fitRect(x, 0, w, h, CARD_RATIO);
       drawCrop(ctx, side, r.x, r.y, r.w, r.h);
     };
-    if (onlyFront()) {
-      draw(state.front, { x: 0, w: c.width });
+    const capH = STRIP.cap * scale;
+    const pad = 8 * scale;
+    const rows = panelRows().length;
+    // Solo el frente: la foto usa toda la altura y el descargo baja a la columna de datos, en dos renglones.
+    const panelX = pad + c.height * CARD_RATIO + 12 * scale;
+    const panelW = c.width - panelX - pad;
+
+    if (onlyFront() && rows && panelW >= 70 * scale) {
+      draw(state.front, pad, c.height * CARD_RATIO, c.height);
+      drawPanel(ctx, panelX, 0, panelW, c.height - capH - 4 * scale, scale);
+      drawCaption(ctx, panelX + panelW / 2, c.height - capH / 2, panelW, scale, ['COPIA DE REFERENCIA', 'SIN VALIDEZ OFICIAL']);
+    } else if (onlyFront()) {
+      draw(state.front, 0, c.width, c.height - capH); // todavía sin datos: foto centrada
+      drawCaption(ctx, c.width / 2, c.height - capH / 2, c.width - 20 * scale, scale, ['COPIA DE REFERENCIA · SIN VALIDEZ OFICIAL']);
     } else {
       const gap = Math.round(STRIP.gap * scale);
       const half = (c.width - gap) / 2;
-      draw(state.front, { x: 0, w: half });
-      draw(state.back, { x: half + gap, w: half });
+      draw(state.front, 0, half, c.height - capH);
+      draw(state.back, half + gap, half, c.height - capH);
+      drawCaption(ctx, c.width / 2, c.height - capH / 2, c.width - 20 * scale, scale, ['COPIA DE REFERENCIA · SIN VALIDEZ OFICIAL']);
     }
     return c;
   }
@@ -313,6 +370,7 @@
   function readForm() {
     for (const k of fieldIds) state.fields[k] = $('f_' + k).value.trim();
     renderPreviewFields();
+    renderPreviewStrip(); // el panel de datos vive dentro del strip
     updateCta();
   }
 
@@ -327,7 +385,6 @@
     $('pv_nombres').textContent = f.nombres || '—';
     $('pv_dni').textContent = fmtDni(f.dni);
     $('pv_nacimiento').textContent = f.nacimiento || '—';
-    $('pv_sexo').textContent = f.sexo || '—';
     $('pv_ejemplar').textContent = f.ejemplar || '—';
     $('pv_raw').textContent = f.raw || 'Sin código — se usará un QR con los datos';
     renderPassBack();
@@ -338,6 +395,9 @@
     const f = state.fields;
     const rows = [
       ['Aviso', 'Copia personal de referencia. No reemplaza al DNI físico ni al DNI Digital de Mi Argentina y no tiene validez legal.'],
+      ['Apellido y nombres', `${f.apellido} ${f.nombres}`.trim()],
+      ['Sexo', f.sexo],
+      ['Ejemplar', f.ejemplar],
       ['Nº de trámite', f.tramite],
       ['CUIL', f.cuil],
       ['Nacionalidad', f.nacionalidad],
@@ -362,11 +422,22 @@
     $('addBtn').disabled = !(photos && f.apellido && f.nombres && f.dni);
   }
 
-  /** Modo "solo el frente": el dorso pasa a ser opcional y el strip muestra una sola cara. */
+  /**
+   * Con "solo el frente" los controles del dorso se esconden: no hace falta la foto.
+   * Vuelven a aparecer si el código no apareció en el frente, porque en los DNI viejos está atrás.
+   */
+  function updateBackStep() {
+    const needsBack = state.front && !state.scanned;
+    $('step-back').classList.toggle('hide-capture', state.frontOnly && !needsBack);
+    $('backHintBoth').hidden = state.frontOnly;
+    $('backHintOnly').hidden = !state.frontOnly || needsBack;
+    $('backHintNeed').hidden = !(state.frontOnly && needsBack);
+  }
+
+  /** Modo "solo el frente": el dorso no entra en la imagen del pase. */
   function setFrontOnly(on) {
     state.frontOnly = on;
-    $('step-back').classList.toggle('optional', on);
-    $('backHint').hidden = !on;
+    updateBackStep();
     renderPreviewStrip();
     updateCta();
   }
@@ -459,6 +530,7 @@
     } else {
       setStatus(st, 'No se encontró el código en esta cara. Puede estar en la otra: seguí con la siguiente foto.', '');
     }
+    updateBackStep();
   }
 
   // Al tocar "Agregar": armo strips + campos y hago un POST de nivel superior.
@@ -506,6 +578,7 @@
   $('f_raw').addEventListener('change', () => { const p = parseDni($('f_raw').value); if (p) { state.scanned = true; fillForm(p); } });
   $('addBtn').addEventListener('click', submitPass);
 
+  setFrontOnly($('frontOnly').checked);
   renderPreviewStrip();
   renderPreviewFields();
 

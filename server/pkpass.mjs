@@ -170,9 +170,10 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
     organizationName: cfg.orgName,
     description: `Copia de referencia del DNI ${dni}`,
     logoText: 'DNI', // corto a propósito: Wallet trunca el logoText si el logo ocupa ancho
-    foregroundColor: 'rgb(234,241,248)',
-    backgroundColor: 'rgb(22,61,102)',
-    labelColor: 'rgb(170,190,210)',
+    // Celeste de la bandera con el logo en un recuadro blanco: celeste-blanco-celeste, sin copiar el escudo.
+    foregroundColor: 'rgb(14,39,62)',
+    backgroundColor: 'rgb(116,172,223)',
+    labelColor: 'rgb(30,74,116)',
     sharingProhibited: true,
     barcodes: [
       { format: raw ? 'PKBarcodeFormatPDF417' : 'PKBarcodeFormatQR', message: barcodeMessage, messageEncoding: 'iso-8859-1', altText: dni },
@@ -181,18 +182,23 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
     // en storeCard se dibuja SOBRE el strip y taparía la foto.
     storeCard: {
       headerFields: [{ key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' }],
+      // Wallet dibuja secondary + auxiliary en una sola fila de 4 columnas y descarta el resto en silencio
+      // (probado en iPhone: con 6 campos mostró APELLIDO, NOMBRES, DNI y NACIMIENTO). Por eso van exactamente 4;
+      // sexo, CUIL, vencimiento y trámite se dibujan en el strip, y el descargo también (imagen = nadie lo descarta).
       secondaryFields: [
         { key: 'apellido', label: 'APELLIDO', value: apellido },
-        { key: 'nombres', label: 'NOMBRES', value: nombres, textAlignment: 'PKTextAlignmentRight' },
+        { key: 'nombres', label: 'NOMBRES', value: nombres },
       ],
       auxiliaryFields: [
         { key: 'dni', label: 'DNI', value: dni },
         { key: 'nac', label: 'NACIMIENTO', value: clean(f.nacimiento, 10) || '—' },
-        { key: 'sexo', label: 'SEXO', value: clean(f.sexo, 1) || '—' },
-        { key: 'ref', label: 'REFERENCIA', value: 'Sin validez oficial', textAlignment: 'PKTextAlignmentRight' },
       ],
       backFields: [
         { key: 'aviso', label: 'AVISO', value: 'Copia personal de referencia. No reemplaza al DNI físico ni al DNI Digital de Mi Argentina y no tiene validez legal.' },
+        // El dorso guarda todo en texto: lo de adelante entra en 4 columnas y el resto se dibuja en el strip.
+        { key: 'nombre', label: 'APELLIDO Y NOMBRES', value: `${apellido} ${nombres}`.trim() || '—' },
+        { key: 'sexo', label: 'SEXO', value: clean(f.sexo, 1) || '—' },
+        { key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' },
         { key: 'tramite', label: 'Nº DE TRÁMITE', value: clean(f.tramite, 20) || '—' },
         // Solo se agregan los campos que el código realmente traía: el formato nuevo tiene CUIL y no vencimiento,
         // el viejo (DNI 2009-2012) tiene vencimiento y nacionalidad.

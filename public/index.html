@@ -50,10 +50,11 @@
     <!-- STEP 2: DORSO -->
     <section class="step" id="step-back">
       <div class="step-h"><span class="n">2</span><h2>Dorso del DNI</h2>
-        <label class="toggle"><input type="checkbox" id="frontOnly"><span>Solo el frente</span></label>
+        <label class="toggle"><input type="checkbox" id="frontOnly" checked><span>Solo el frente</span></label>
       </div>
-      <p class="hint">Si el código no estaba en el frente, se lee de acá. El encuadre se ajusta igual.</p>
-      <p class="hint" id="backHint" hidden>El dorso queda afuera: el pase muestra el frente solo, centrado y más grande.</p>
+      <p class="hint" id="backHintBoth">Se muestra junto al frente en el pase, y de acá se lee el código si no estaba adelante.</p>
+      <p class="hint" id="backHintOnly" hidden>El pase muestra solo el frente, así que el dorso no hace falta. Destildá la opción para armar el pase con las dos caras.</p>
+      <p class="hint" id="backHintNeed" hidden>El código no estaba en el frente: sacá el dorso para leerlo. Esta foto no se va a mostrar en el pase.</p>
       <div class="capture" id="backCapture">
         <canvas id="backCanvas" hidden aria-label="Encuadre del dorso: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
@@ -103,11 +104,8 @@
             <div class="row">
               <div class="fld"><div class="l">Apellido</div><div class="v" id="pv_apellido">—</div></div>
               <div class="fld"><div class="l">Nombres</div><div class="v" id="pv_nombres">—</div></div>
-            </div>
-            <div class="row">
               <div class="fld"><div class="l">DNI</div><div class="v" id="pv_dni">—</div></div>
               <div class="fld"><div class="l">Nacimiento</div><div class="v" id="pv_nacimiento">—</div></div>
-              <div class="fld"><div class="l">Sexo</div><div class="v" id="pv_sexo">—</div></div>
             </div>
           </div>
           <div class="p-bar">
@@ -120,8 +118,6 @@
         <div class="p-face" id="passBack" hidden>
           <div class="p-back" id="pv_back"></div>
         </div>
-
-        <div class="p-foot">Copia de referencia — sin validez oficial</div>
       </div>
 
       <button class="cta" id="addBtn" type="button" disabled><span class="cta-ico" aria-hidden="true"></span>Agregar a Apple Wallet</button>
