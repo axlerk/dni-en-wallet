@@ -19,6 +19,18 @@ export const fmtDni = (d) => { const n = clean(d, 12).replace(/\D/g, ''); return
  */
 export const FRONT_FIELDS_MAX = 4;
 
+/**
+ * Colores de la bandera. `background` lo usa también el strip: pintar la foto sobre el mismo celeste
+ * equivale a que la foto no tenga fondo propio (Wallet no admite transparencia confiable en el strip).
+ * `foreground` pinta el logoText y los valores; `label` las etiquetas.
+ */
+export const COLORS = {
+  background: 'rgb(116,172,223)',
+  foreground: 'rgb(255,255,255)',
+  label: 'rgb(226,240,250)',
+  accent: 'rgb(246,180,14)', // amarillo del Sol de Mayo: el logo y el aviso del dorso
+};
+
 export function buildPassJson(cfg, f, serial, now = new Date()) {
   const apellido = clean(f.apellido), nombres = clean(f.nombres);
   const dni = fmtDni(f.dni);
@@ -32,10 +44,10 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
     organizationName: cfg.orgName,
     description: `Copia de referencia del DNI ${dni}`,
     logoText: 'DNI', // corto a propósito: Wallet trunca el logoText si el logo ocupa ancho
-    // Celeste de la bandera; el strip va sobre blanco → celeste, blanco, celeste.
-    foregroundColor: 'rgb(14,39,62)',
-    backgroundColor: 'rgb(116,172,223)',
-    labelColor: 'rgb(30,74,116)',
+    // Celeste de la bandera, texto blanco y el logo en amarillo: los tres colores, sin escudo ni Sol de Mayo.
+    foregroundColor: COLORS.foreground,
+    backgroundColor: COLORS.background,
+    labelColor: COLORS.label,
     sharingProhibited: true,
     barcodes: [
       { format: raw ? 'PKBarcodeFormatPDF417' : 'PKBarcodeFormatQR', message: barcodeMessage, messageEncoding: 'iso-8859-1', altText: dni },

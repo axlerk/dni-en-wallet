@@ -2,7 +2,7 @@
  * Flujo: foto frente → foto dorso (el PDF417 se busca en las dos caras) → encuadre (arrastrar / pellizcar) → revisar datos → strip (frente|dorso) → POST → .pkpass
  * Todo el procesamiento de imagen ocurre en el teléfono. Al servidor solo viaja el pase ya armado para firmarse.
  */
-import { buildPassJson, frontRowFields, fmtDni } from './pass-json.js';
+import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
 
 (() => {
   'use strict';
@@ -25,10 +25,10 @@ import { buildPassJson, frontRowFields, fmtDni } from './pass-json.js';
   // El recorte de cada cara mantiene la proporción real de la tarjeta (ID-1, 85.6×54 mm), así no se corta nada:
   // dos caras entran como 186×117 con una franja de 3 pt arriba y abajo; solo el frente entra como 195×123 centrado.
   // Las franjas se pintan del color de fondo del pase, así que no se ven.
-  // Fondo negro de lado a lado: la foto del documento se recorta sola contra el negro y el celeste del pase.
+  // El strip se pinta con el mismo color de fondo del pase: la foto queda sin fondo propio, flotando sobre el celeste.
   // Wallet recorta la fila de campos a 4 (probado en iPhone el 2026-09-12: con 6 campos descartó SEXO y REFERENCIA),
   // así que el resto de los datos vive en el dorso del pase, no encima de la foto.
-  const STRIP = { w: 375, h: 123, gap: 3, bg: '#111111' };
+  const STRIP = { w: 375, h: 123, gap: 3, bg: COLORS.background };
   const CARD_RATIO = 85.6 / 54; // 1.585…
   const ZOOM = { min: 1, max: 5 };
 
@@ -331,6 +331,8 @@ import { buildPassJson, frontRowFields, fmtDni } from './pass-json.js';
     const sc = pass.storeCard;
     $('pass').style.setProperty('--pass-bg', pass.backgroundColor);
     $('pass').style.setProperty('--pass-ink', pass.foregroundColor);
+    $('pass').style.setProperty('--pass-label', pass.labelColor);
+    $('pass').style.setProperty('--pass-accent', COLORS.accent);
     $('pv_logoText').textContent = pass.logoText;
 
     fillFieldRow($('pv_header'), sc.headerFields, 'hfield');
