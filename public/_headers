@@ -1,0 +1,12 @@
+# Cabeceras de seguridad para Workers Static Assets (mismo formato que Pages).
+# Este archivo es configuración: no se sirve como contenido.
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  # La cámara solo para esta página; nada de micrófono, ubicación ni sensores.
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  # Todo es propio: no hay CDN, ni fuentes externas, ni analítica. blob:/data: son para la cámara y los canvas.
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'

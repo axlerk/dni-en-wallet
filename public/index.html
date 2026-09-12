@@ -128,7 +128,22 @@
     </form>
   </main>
 
-  <footer class="foot">Tus fotos y datos se procesan en tu teléfono. Solo el pase ya armado viaja al servidor para firmarse.</footer>
+  <!-- Qué pasa con los datos, en concreto y sin adornos -->
+  <section class="privacy" id="privacy">
+    <h2>Qué pasa con tus datos</h2>
+    <ul>
+      <li><b>En tu teléfono y solo ahí:</b> la cámara, el recorte, la lectura del código PDF417 y el armado de la imagen del pase.</li>
+      <li><b>Lo que viaja al servidor:</b> <span id="privacyUpload">la imagen ya armada y los campos del formulario</span>, para poder firmar el pase con el certificado de Apple. La clave privada no puede vivir en el navegador, por eso hace falta ese paso.</li>
+      <li><b>Lo que se guarda:</b> nada. La request entra, se firma y se responde. No hay base de datos, ni archivos, ni cuentas, ni cookies.</li>
+      <li><b>Lo que no hay:</b> analítica, rastreadores, fuentes ni scripts de terceros. La página no hace un solo pedido fuera de este dominio.</li>
+      <li><b>Lo que ve Cloudflare,</b> que aloja el sitio: los datos técnicos de cada request (fecha, IP, ruta, estado), como cualquier servidor. El contenido no se almacena.</li>
+      <li><b>Nunca buscamos datos por número:</b> todo sale del documento que tenés en la mano.</li>
+    </ul>
+    <p class="fine">El código es abierto y el sitio se publica desde ese mismo repositorio:
+      <a href="https://github.com/axlerk/dni-wallet" rel="noopener">github.com/axlerk/dni-wallet</a>.</p>
+  </section>
+
+  <footer class="foot">Copia de referencia sin validez oficial. No reemplaza al DNI ni al DNI Digital de Mi Argentina.</footer>
 
   <!-- Cámara en vivo con marco guía: el recorte del marco es exactamente lo que va al pase -->
   <div class="cam" id="cam" hidden role="dialog" aria-modal="true" aria-label="Cámara">
