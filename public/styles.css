@@ -84,29 +84,29 @@ body.cam-open{overflow:hidden}
 
 /* ---- pass preview (storeCard style) ---- */
 /* Celeste de la bandera + logo en blanco, igual que el pase firmado */
-.pass{--pass-bg:#74acdf;--pass-ink:#0e273e;--pass-ink-2:rgba(14,39,62,.66);
-  border-radius:13px;overflow:hidden;background:radial-gradient(120% 80% at 85% -10%,rgba(255,255,255,.35),transparent 62%),linear-gradient(168deg,#83b7e4,#6aa3d4);color:var(--pass-ink);box-shadow:var(--shadow);margin:6px 0 16px}
-/* Igual que el logo del pase: glifo sin recuadro, del mismo color que el texto */
+.pass{--pass-bg:#74acdf;--pass-ink:#fff;--pass-label:#e2f0fa;--pass-accent:#f6b40e;--pass-ink-2:rgba(255,255,255,.72);
+  border-radius:13px;overflow:hidden;background:radial-gradient(120% 80% at 85% -10%,rgba(255,255,255,.22),transparent 62%),linear-gradient(168deg,#7fb3e2,#6aa3d4);color:var(--pass-ink);box-shadow:var(--shadow);margin:6px 0 16px}
+/* Igual que el logo del pase: glifo sin recuadro, en amarillo */
 .pass .mark{background:none;border:0;box-shadow:none;width:30px;height:30px}
-.pass .mark::before{inset:5px 2px;border:2px solid var(--pass-ink);border-radius:5px}
+.pass .mark::before{inset:5px 2px;border:2px solid var(--pass-accent);border-radius:5px}
 .p-head{display:flex;align-items:center;gap:10px;padding:12px 14px 10px}
 .p-head .hfield{margin-left:auto}
-.p-flip{flex:none;width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.55);color:var(--pass-ink);font-size:11px;line-height:1;letter-spacing:1px;cursor:pointer;display:grid;place-items:center;padding:0 0 3px}
-.p-flip:hover{background:rgba(255,255,255,.8)}
-.p-flip[aria-pressed="true"]{background:var(--pass-ink);color:#eaf1f8}
+.p-flip{flex:none;width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.28);color:var(--pass-ink);font-size:11px;line-height:1;letter-spacing:1px;cursor:pointer;display:grid;place-items:center;padding:0 0 3px}
+.p-flip:hover{background:rgba(255,255,255,.45)}
+.p-flip[aria-pressed="true"]{background:#fff;color:#12314f}
 .p-face{animation:face .22s ease}
 @keyframes face{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.p-face{animation:none}}
 .p-back{padding:4px 14px 10px;display:flex;flex-direction:column;gap:11px}
-.p-back .bf .l{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--pass-ink-2)}
+.p-back .bf .l{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--pass-label)}
 .p-back .bf .v{font-size:12.5px;line-height:1.4;overflow-wrap:anywhere}
-.p-back .bf:first-child .v{color:#7a4a12}
+.p-back .bf:first-child .v{color:var(--pass-accent)}
 .p-logo{display:flex;align-items:center;gap:9px}
 .p-logo .lg{font-size:11px;line-height:1.15}.p-logo .lg b{display:block;font-size:13px;letter-spacing:.02em}.p-logo .lg span{color:var(--pass-ink-2);font-size:10px}
 .p-header-fields{margin-left:auto;display:flex;gap:12px}
-.hfield{text-align:right}.hfield .l,.fld .l{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--pass-ink-2)}
+.hfield{text-align:right}.hfield .l,.fld .l{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--pass-label)}
 .hfield .v{font-size:15px;font-weight:700;font-family:ui-monospace,Menlo,monospace}
-.p-strip{background:#111}.p-strip canvas{display:block;width:100%;height:auto;aspect-ratio:375/123}
+.p-strip{background:var(--pass-bg)}.p-strip canvas{display:block;width:100%;height:auto;aspect-ratio:375/123}
 .p-fields{padding:11px 14px 4px}
 .p-fields .row{display:flex;gap:9px}
 .fld{min-width:0;flex:1}.fld .v{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
