@@ -9,27 +9,11 @@
  * crypto.subtle es nativo. Y el mismo módulo sirve para el servidor Node local.
  */
 
-// ---------- Utilidades de bytes ----------
-const te = new TextEncoder();
-export const utf8 = (s) => te.encode(s);
+// Lo que también necesita el navegador (zip, manifest, hashes) vive en public/pkpass-build.js.
+export { utf8, concat, fromBase64, zipStore, buildManifest, sha256hex, dataUrlToPng, passSerial, PASS_FILES } from '../public/pkpass-build.js';
+import { utf8, concat, fromBase64, zipStore, buildManifest, passSerial, dataUrlToPng, PASS_FILES } from '../public/pkpass-build.js';
 
-export function concat(parts) {
-  let n = 0; for (const p of parts) n += p.length;
-  const out = new Uint8Array(n); let o = 0;
-  for (const p of parts) { out.set(p, o); o += p.length; }
-  return out;
-}
-
-export function fromBase64(b64) {
-  if (typeof Buffer !== 'undefined') return new Uint8Array(Buffer.from(b64, 'base64'));
-  const bin = atob(b64); const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-}
-
-const hex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, '0')).join('');
 const sha1 = async (u8) => new Uint8Array(await crypto.subtle.digest('SHA-1', u8));
-export const sha256hex = async (s) => hex(new Uint8Array(await crypto.subtle.digest('SHA-256', utf8(s))));
 
 /** PEM → DER (primer bloque). Devuelve también el label (CERTIFICATE / PRIVATE KEY / RSA PRIVATE KEY). */
 export function pemToDer(pem) {
@@ -129,37 +113,25 @@ export async function signManifest(manifestBytes, { wwdrPem, signerCertPem, sign
   return SEQ(OID(OIDS.signedData), CTX(0, signedData));
 }
 
-// ---------- Zip (store, sin compresión) ----------
-const CRC_TABLE = (() => { const t = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c; } return t; })();
-function crc32(u8) { let c = -1; for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xff] ^ (c >>> 8); return (c ^ -1) >>> 0; }
-const u16 = (n) => new Uint8Array([n & 0xff, (n >>> 8) & 0xff]);
-const u32 = (n) => new Uint8Array([n & 0xff, (n >>> 8) & 0xff, (n >>> 16) & 0xff, (n >>> 24) & 0xff]);
-
-export function zipStore(files, date = new Date()) {
-  const dosTime = ((date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1)) & 0xffff;
-  const dosDate = (((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate()) & 0xffff;
-  const locals = [], centrals = []; let offset = 0;
-  for (const [name, data] of Object.entries(files)) {
-    const n = utf8(name), crc = crc32(data);
-    const common = concat([u16(20), u16(0x0800), u16(0), u16(dosTime), u16(dosDate), u32(crc), u32(data.length), u32(data.length), u16(n.length)]);
-    const local = concat([u32(0x04034b50), common, u16(0), n, data]);
-    centrals.push(concat([u32(0x02014b50), u16(20), common, u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset), n]));
-    locals.push(local); offset += local.length;
-  }
-  const cd = concat(centrals);
-  const eocd = concat([u32(0x06054b50), u16(0), u16(0), u16(centrals.length), u16(centrals.length), u32(cd.length), u32(offset), u16(0)]);
-  return concat([...locals, cd, eocd]);
+/**
+ * Firma un manifest que armó el teléfono. Es el camino que evita subir la foto: acá solo entran hashes.
+ * Se valida que sea realmente un manifest nuestro antes de firmar nada.
+ */
+export async function signClientManifest(manifestText, certs) {
+  if (!certs) throw Object.assign(new Error('Faltan certificados'), { status: 503 });
+  if (typeof manifestText !== 'string' || manifestText.length > 4096) throw Object.assign(new Error('Manifest inválido'), { status: 400 });
+  let manifest;
+  try { manifest = JSON.parse(manifestText); } catch { throw Object.assign(new Error('Manifest no es JSON'), { status: 400 }); }
+  const names = Object.keys(manifest);
+  if (!names.length || !names.every((n) => PASS_FILES.includes(n))) throw Object.assign(new Error('Manifest con archivos desconocidos'), { status: 400 });
+  if (!names.includes('pass.json')) throw Object.assign(new Error('Falta pass.json en el manifest'), { status: 400 });
+  if (!Object.values(manifest).every((h) => typeof h === 'string' && /^[0-9a-f]{40}$/.test(h))) throw Object.assign(new Error('Hashes inválidos'), { status: 400 });
+  return signManifest(utf8(manifestText), certs);
 }
 
 // ---------- Contenido del pase ----------
 // Vive en public/ para que la PWA arme la misma vista previa con el mismo pass.json (una sola fuente de verdad).
 import { clean, buildPassJson } from '../public/pass-json.js';
-
-export function dataUrlToPng(s) {
-  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(s || ''));
-  if (!m) throw Object.assign(new Error('strip inválido (se espera data:image/png;base64)'), { status: 400 });
-  return fromBase64(m[1]);
-}
 
 /** Body application/x-www-form-urlencoded → {fields, strips}. */
 export function parsePassForm(body) {
@@ -177,9 +149,7 @@ export async function createPkpass({ cfg, certs, assets, fields, strips }) {
   if (!certs) throw Object.assign(new Error('Faltan certificados'), { status: 503 });
   if (!clean(fields.apellido) || !clean(fields.nombres) || !clean(fields.dni)) throw Object.assign(new Error('apellido, nombres y dni son obligatorios'), { status: 400 });
 
-  // Serial estable por documento: regenerar reemplaza el pase en Wallet en vez de duplicarlo. No se guarda en ningún lado.
-  const serial = 'dni-' + (await sha256hex(`${clean(fields.dni)}|${clean(fields.ejemplar)}|${cfg.passTypeId}`)).slice(0, 24);
-
+  const serial = await passSerial(clean(fields.dni), clean(fields.ejemplar), cfg.passTypeId);
   const files = {
     ...assets,
     'strip.png': dataUrlToPng(strips.strip1x),
@@ -187,9 +157,7 @@ export async function createPkpass({ cfg, certs, assets, fields, strips }) {
     'strip@3x.png': dataUrlToPng(strips.strip3x),
     'pass.json': utf8(JSON.stringify(buildPassJson(cfg, fields, serial))),
   };
-  const manifest = {};
-  for (const [name, data] of Object.entries(files)) manifest[name] = hex(await sha1(data));
-  const manifestBytes = utf8(JSON.stringify(manifest));
+  const manifestBytes = await buildManifest(files);
   files['manifest.json'] = manifestBytes;
   files['signature'] = await signManifest(manifestBytes, certs);
   return { bytes: zipStore(files), serial };
