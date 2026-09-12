@@ -452,16 +452,24 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   }
 
   /**
-   * Vencimiento cuando el código no lo trae (formato nuevo). El DNI de mayores de 14 vale 15 años desde la
-   * emisión (argentina.gob.ar y prensa local; el propio documento del autor lo confirma:
-   * vence a los 15 años de la emisión). Para menores la renovación va por edad (5-8 y 14 años), así que ahí no adivinamos.
+   * Vencimiento cuando el código no lo trae (formato nuevo). Un DNI de mayores de 14 vale 15 años desde la
+   * emisión (argentina.gob.ar y prensa local; el documento del autor lo confirma: vence a los 15 años de la emisión).
+   *
+   * Pero eso no vale para todos: la residencia temporaria se otorga por hasta 3 años y el DNI vence con ella.
+   * Por eso solo calculamos cuando hay motivo para creer que es un DNI de argentino: número por debajo de la
+   * serie 9x millones (que es la de extranjeros y naturalizados) y, si el código trajo nacionalidad, que diga
+   * ARGENTINA. En cualquier otro caso se deja vacío: es mejor un campo en blanco que una fecha inventada.
    */
-  function vencimientoSugerido(emision, nacimiento) {
+  function vencimientoSugerido(emision, nacimiento, dni, nacionalidad) {
+    const n8 = Number(onlyDigits(dni));
+    if (!n8 || n8 >= 90000000) return '';
+    const nac = String(nacionalidad || '').trim().toUpperCase();
+    if (nac && nac !== 'ARGENTINA') return '';
     const parse = (v) => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || '').trim()); return m ? { d: +m[1], mo: +m[2], y: +m[3] } : null; };
-    const e = parse(emision), n = parse(nacimiento);
-    if (!e || !n) return '';
-    const edad = e.y - n.y - (e.mo < n.mo || (e.mo === n.mo && e.d < n.d) ? 1 : 0);
-    if (edad < 14) return '';
+    const e = parse(emision), b = parse(nacimiento);
+    if (!e || !b) return '';
+    const edad = e.y - b.y - (e.mo < b.mo || (e.mo === b.mo && e.d < b.d) ? 1 : 0);
+    if (edad < 14) return ''; // menores: la renovación va por edad (5-8 y 14 años)
     const y = e.y + 15;
     const existe = new Date(Date.UTC(y, e.mo - 1, e.d)).getUTCDate() === e.d; // 29/02 + 15 puede no existir
     return existe ? `${String(e.d).padStart(2, '0')}/${String(e.mo).padStart(2, '0')}/${y}` : '';
@@ -470,7 +478,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   function maybeFillVencimiento() {
     const el = $('f_vencimiento');
     if (state.vencTouched || el.value.trim()) return;
-    const v = vencimientoSugerido(state.fields.emision, state.fields.nacimiento);
+    const v = vencimientoSugerido(state.fields.emision, state.fields.nacimiento, state.fields.dni, state.fields.nacionalidad);
     if (!v) { setFieldMsg(el, ''); return; }
     el.value = v;
     state.fields.vencimiento = v;
@@ -588,12 +596,13 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
    * Con "solo el frente" los controles del dorso se esconden: no hace falta la foto.
    * Vuelven a aparecer si el código no apareció en el frente, porque en los DNI viejos está atrás.
    */
+  /**
+   * Lo único que el CSS no puede saber: que el frente no traía código y entonces el dorso vuelve a hacer falta.
+   * El resto (qué se ve con "Solo el frente" tildado) lo resuelve el propio checkbox en la hoja de estilos,
+   * así no hay parpadeo al cargar ni estados que se puedan desincronizar.
+   */
   function updateBackStep() {
-    const needsBack = state.front && !state.scanned;
-    $('step-back').classList.toggle('hide-capture', state.frontOnly && !needsBack);
-    $('backHintBoth').hidden = state.frontOnly;
-    $('backHintOnly').hidden = !state.frontOnly || needsBack;
-    $('backHintNeed').hidden = !(state.frontOnly && needsBack);
+    $('step-back').classList.toggle('needs-back', Boolean(state.front && !state.scanned));
   }
 
   /** Modo "solo el frente": el dorso no entra en la imagen del pase. */
