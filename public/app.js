@@ -25,6 +25,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
     cuilAuto: false,
     nacTouched: false,  // ídem para la nacionalidad sugerida
+    vencTouched: false, // ídem para el vencimiento calculado
     scanned: false,   // ya se leyó el PDF417 en alguna de las dos caras
     fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', nacionalidad: '', cuil: '', raw: '' },
   };
@@ -450,6 +451,32 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     setFieldMsg(el, 'Sugerida por el número de DNI', 'note');
   }
 
+  /**
+   * Vencimiento cuando el código no lo trae (formato nuevo). El DNI de mayores de 14 vale 15 años desde la
+   * emisión (argentina.gob.ar y prensa local; el propio documento del autor lo confirma:
+   * vence a los 15 años de la emisión). Para menores la renovación va por edad (5-8 y 14 años), así que ahí no adivinamos.
+   */
+  function vencimientoSugerido(emision, nacimiento) {
+    const parse = (v) => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || '').trim()); return m ? { d: +m[1], mo: +m[2], y: +m[3] } : null; };
+    const e = parse(emision), n = parse(nacimiento);
+    if (!e || !n) return '';
+    const edad = e.y - n.y - (e.mo < n.mo || (e.mo === n.mo && e.d < n.d) ? 1 : 0);
+    if (edad < 14) return '';
+    const y = e.y + 15;
+    const existe = new Date(Date.UTC(y, e.mo - 1, e.d)).getUTCDate() === e.d; // 29/02 + 15 puede no existir
+    return existe ? `${String(e.d).padStart(2, '0')}/${String(e.mo).padStart(2, '0')}/${y}` : '';
+  }
+
+  function maybeFillVencimiento() {
+    const el = $('f_vencimiento');
+    if (state.vencTouched || el.value.trim()) return;
+    const v = vencimientoSugerido(state.fields.emision, state.fields.nacimiento);
+    if (!v) { setFieldMsg(el, ''); return; }
+    el.value = v;
+    state.fields.vencimiento = v;
+    setFieldMsg(el, 'Calculado: 15 años desde la emisión', 'note');
+  }
+
   function maybeFillCuil() {
     const el = $('f_cuil');
     if (state.cuilTouched || el.value.trim()) return;
@@ -479,6 +506,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     for (const k of fieldIds) state.fields[k] = $('f_' + k).value.trim();
     maybeFillCuil();
     maybeFillNacionalidad();
+    maybeFillVencimiento();
     renderPreviewFields();
     updateCta();
   }
@@ -777,6 +805,12 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     $('flipBtn').setAttribute('aria-pressed', String(showBack));
     $('flipBtn').setAttribute('aria-label', showBack ? 'Ver el frente del pase' : 'Ver el dorso del pase');
   });
+  // iOS ignora user-scalable en Safari, así que además frenamos el gesto de zoom de la página.
+  // El pellizco dentro del marco de encuadre sigue funcionando: ese canvas maneja sus propios punteros.
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+  }
+
   // ---------- Tirar para actualizar ----------
   // En modo pantalla de inicio no hay barra del navegador ni gesto nativo: sin esto no se puede recargar
   // la página (ni soltar los datos de la sesión anterior, ni tomar una versión nueva de la app).
@@ -831,6 +865,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   }
   $('f_cuil').addEventListener('input', () => { state.cuilTouched = true; state.cuilAuto = false; setFieldMsg($('f_cuil'), ''); });
   $('f_nacionalidad').addEventListener('input', () => { state.nacTouched = true; setFieldMsg($('f_nacionalidad'), ''); });
+  $('f_vencimiento').addEventListener('input', () => { state.vencTouched = true; });
   $('dataForm').addEventListener('input', readForm);
   $('f_raw').addEventListener('change', () => { const p = parseDni($('f_raw').value); if (p) { state.scanned = true; fillForm(p); } });
   $('addBtn').addEventListener('click', submitPass);
