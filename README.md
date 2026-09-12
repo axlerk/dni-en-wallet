@@ -20,6 +20,9 @@ El servidor **no firma un manifest ajeno**: arma él mismo el `pass.json`, calcu
 
 El `.pkpass` terminado lo entrega el **service worker**: la página le pasa los bytes y navega a `/pkpass/<serial>.pkpass`, que responde localmente con el `Content-Type` que Wallet espera.
 
+`/api/sign` está limitado a 6 pedidos cada 10 segundos por IP y rechaza un `Origin` de otro sitio, para que
+nadie lo use como servicio de firma ajeno.
+
 No se guarda nada: la request entra, se firma y se responde. No hay base de datos, ni cuentas, ni cookies, ni analítica, ni un solo pedido a otro dominio.
 
 ## El pase
