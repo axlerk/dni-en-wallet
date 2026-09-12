@@ -86,8 +86,9 @@ body.cam-open{overflow:hidden}
 /* Celeste de la bandera + logo en blanco, igual que el pase firmado */
 .pass{--pass-bg:#74acdf;--pass-ink:#0e273e;--pass-ink-2:rgba(14,39,62,.66);
   border-radius:13px;overflow:hidden;background:radial-gradient(120% 80% at 85% -10%,rgba(255,255,255,.35),transparent 62%),linear-gradient(168deg,#83b7e4,#6aa3d4);color:var(--pass-ink);box-shadow:var(--shadow);margin:6px 0 16px}
-.pass .mark{background:#fff;border:0;box-shadow:0 1px 3px rgba(14,39,62,.25)}
-.pass .mark::before{border-color:#5a9acd}
+/* Igual que el logo del pase: glifo sin recuadro, del mismo color que el texto */
+.pass .mark{background:none;border:0;box-shadow:none;width:30px;height:30px}
+.pass .mark::before{inset:5px 2px;border:2px solid var(--pass-ink);border-radius:5px}
 .p-head{display:flex;align-items:center;gap:10px;padding:12px 14px 10px}
 .p-head .hfield{margin-left:auto}
 .p-flip{flex:none;width:28px;height:28px;border-radius:50%;border:0;background:rgba(255,255,255,.55);color:var(--pass-ink);font-size:11px;line-height:1;letter-spacing:1px;cursor:pointer;display:grid;place-items:center;padding:0 0 3px}
