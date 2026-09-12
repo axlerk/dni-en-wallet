@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Tirar hacia abajo para actualizar: en modo pantalla de inicio no hay barra del navegador y el gesto nativo no existe -->
+  <div class="ptr" id="ptr" aria-hidden="true"><span class="ptr-ico"></span><span class="ptr-txt" id="ptrTxt">Tirá para actualizar</span></div>
   <header class="top">
     <div class="brand">
       <span class="mark" aria-hidden="true"></span>
@@ -25,8 +27,6 @@
         <h1>DNI en Wallet</h1>
         <p class="sub">Copia de referencia · <b>sin validez oficial</b></p>
       </div>
-      <!-- En modo pantalla de inicio no hay barra del navegador: sin esto no se puede recargar ni empezar de cero -->
-      <button type="button" class="reset" id="resetBtn" title="Empezar de nuevo">↻ Empezar de nuevo</button>
     </div>
   </header>
 
