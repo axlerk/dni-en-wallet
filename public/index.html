@@ -74,12 +74,17 @@
       <div class="step-h"><span class="n">3</span><h2>Datos</h2></div>
       <p class="hint">Revisá lo que se leyó. Si el código no se pudo leer, completá a mano.</p>
       <form id="dataForm" class="grid" autocomplete="off">
-        <label class="f span2"><span>Apellido</span><input id="f_apellido" name="apellido" required></label>
-        <label class="f span2"><span>Nombres</span><input id="f_nombres" name="nombres" required></label>
-        <label class="f"><span>DNI</span><input id="f_dni" name="dni" inputmode="numeric" required></label>
-        <label class="f"><span>Sexo</span><input id="f_sexo" name="sexo" maxlength="1"></label>
+        <label class="f span2"><span>Apellido</span><input id="f_apellido" name="apellido" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="next" required></label>
+        <label class="f span2"><span>Nombres</span><input id="f_nombres" name="nombres" autocapitalize="characters" autocomplete="off" spellcheck="false" enterkeyhint="next" required></label>
+        <label class="f"><span>DNI</span><input id="f_dni" name="dni" inputmode="numeric" maxlength="10" enterkeyhint="next" required></label>
+        <label class="f"><span>Sexo</span><select id="f_sexo" name="sexo">
+          <option value="">—</option>
+          <option value="M">M — masculino</option>
+          <option value="F">F — femenino</option>
+          <option value="X">X — no binario</option>
+        </select></label>
         <label class="f"><span>Nacimiento</span><input id="f_nacimiento" name="nacimiento" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA"></label>
-        <label class="f"><span>Ejemplar</span><input id="f_ejemplar" name="ejemplar" maxlength="1"></label>
+        <label class="f"><span>Ejemplar</span><input id="f_ejemplar" name="ejemplar" maxlength="1" autocapitalize="characters" autocomplete="off" spellcheck="false"></label>
         <label class="f"><span>Nº trámite</span><input id="f_tramite" name="tramite" inputmode="numeric"></label>
         <label class="f"><span>Emisión</span><input id="f_emision" name="emision" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA"></label>
         <label class="f"><span>Vencimiento</span><input id="f_vencimiento" name="vencimiento" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA"></label>

@@ -82,6 +82,14 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
         { key: 'emision', label: 'FECHA DE EMISIÓN', value: clean(f.emision, 10) || '—' },
         ...(clean(f.vencimiento, 10) ? [{ key: 'vencimiento', label: 'FECHA DE VENCIMIENTO', value: clean(f.vencimiento, 10) }] : []),
         { key: 'codigo', label: 'CÓDIGO PDF417', value: raw || '—' },
+        // El DNI Digital de verdad vive en Mi Argentina. Los enlaces solo funcionan en el dorso del pase,
+        // a través de attributedValue; si el sistema tiene la app instalada y el enlace es universal, la abre.
+        {
+          key: 'miargentina',
+          label: 'DNI DIGITAL OFICIAL',
+          value: 'Mi Argentina: https://mi.argentina.gob.ar/',
+          attributedValue: '<a href="https://mi.argentina.gob.ar/">Abrir Mi Argentina</a>',
+        },
         { key: 'gen', label: 'GENERADO', value: now.toISOString().slice(0, 10) },
       ],
     },

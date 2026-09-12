@@ -496,7 +496,11 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
       const row = document.createElement('div');
       row.className = 'bf';
       const lab = document.createElement('div'); lab.className = 'l'; lab.textContent = b.label;
-      const val = document.createElement('div'); val.className = 'v'; val.textContent = b.value;
+      const val = document.createElement('div'); val.className = 'v';
+      // Wallet muestra los enlaces del dorso; en la vista previa los mostramos igual, pero armados a mano.
+      const link = /<a href="([^"]+)">([^<]+)<\/a>/.exec(b.attributedValue || '');
+      if (link) { const a = document.createElement('a'); a.href = link[1]; a.rel = 'noopener'; a.textContent = link[2]; val.append(a); }
+      else { val.textContent = b.value; }
       row.append(lab, val);
       $('pv_back').append(row);
     }
@@ -811,6 +815,11 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('cam').hidden) closeCamera(); });
   window.addEventListener('resize', () => { for (const w of ['front', 'back']) if (state[w]) scheduleRender(w); });
   for (const id of dateIds) wireDateField($('f_' + id));
+  // El DNI es solo números; apellido, nombres y ejemplar van en mayúsculas como en el documento.
+  $('f_dni').addEventListener('input', (e) => { const el = e.target; const c = el.selectionStart; const v = el.value.replace(/\D/g, ''); if (v !== el.value) { el.value = v; try { el.setSelectionRange(c - 1, c - 1); } catch { /* ignorar */ } } });
+  for (const id of ['apellido', 'nombres', 'ejemplar']) {
+    $('f_' + id).addEventListener('blur', (e) => { const v = e.target.value.trim().toUpperCase(); if (v !== e.target.value) { e.target.value = v; readForm(); } });
+  }
   $('f_cuil').addEventListener('input', () => { state.cuilTouched = true; state.cuilAuto = false; setFieldMsg($('f_cuil'), ''); });
   $('f_nacionalidad').addEventListener('input', () => { state.nacTouched = true; setFieldMsg($('f_nacionalidad'), ''); });
   $('dataForm').addEventListener('input', readForm);

@@ -85,9 +85,12 @@ body.cam-open{overflow:hidden}
 .f{display:flex;flex-direction:column;gap:4px}
 .f.span2{grid-column:1/-1}
 .f span{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
-.f input,.f textarea{font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);width:100%}
+.f input,.f textarea,.f select{font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);width:100%}
+.f select{appearance:none;-webkit-appearance:none;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
+  background-position:calc(100% - 17px) 20px,calc(100% - 12px) 20px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
 .f textarea{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;resize:vertical}
-.f input:focus,.f textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+.f input:focus,.f textarea:focus,.f select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
 .f input[aria-invalid="true"]{border-color:var(--bad)}
 .f input[aria-invalid="true"]:focus{outline-color:var(--bad)}
 .f .err,.f .note{font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none}
@@ -112,6 +115,7 @@ body.cam-open{overflow:hidden}
 .p-back{padding:4px 14px 10px;display:flex;flex-direction:column;gap:11px}
 .p-back .bf .l{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--pass-label)}
 .p-back .bf .v{font-size:12.5px;line-height:1.4;overflow-wrap:anywhere}
+.p-back .bf .v a{color:#fff;text-decoration:underline;text-underline-offset:2px}
 .p-back .bf:first-child .v{color:var(--pass-accent)}
 .p-logo{display:flex;align-items:center;gap:9px}
 .p-logo .lg{font-size:11px;line-height:1.15}.p-logo .lg b{display:block;font-size:13px;letter-spacing:.02em}.p-logo .lg span{color:var(--pass-ink-2);font-size:10px}
