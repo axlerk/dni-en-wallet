@@ -6,3 +6,5 @@ public/vendor/
 *.pkpass
 *.p12
 .DS_Store
+*.bundle
+*.zip
