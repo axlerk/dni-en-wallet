@@ -17,6 +17,8 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     front: null,
     back: null,
     frontOnly: true,    // armar el pase solo con el frente (por defecto; el dorso sigue sirviendo para leer el código)
+    scanning: false,    // buscando el PDF417
+    building: false,    // armando el pase para Wallet
     cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
     cuilAuto: false,
     scanned: false,   // ya se leyó el PDF417 en alguna de las dos caras
@@ -490,10 +492,28 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     }
   }
 
-  function updateCta() {
+  /** Enumeración en castellano: "apellido, nombres y DNI". */
+  const listEs = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+
+  /** Qué dice el botón: mientras no se puede tocar, explica qué falta o qué está haciendo. */
+  function ctaState() {
     const f = state.fields;
-    const photos = state.front && (state.frontOnly || state.back);
-    $('addBtn').disabled = !(photos && f.apellido && f.nombres && f.dni);
+    if (state.building) return { text: 'Armando el pase…', busy: true };
+    if (state.scanning) return { text: 'Leyendo el código…', busy: true };
+    if (!state.front) return { text: 'Falta la foto del frente' };
+    if (!state.frontOnly && !state.back) return { text: 'Falta la foto del dorso' };
+    const missing = [['apellido', 'apellido'], ['nombres', 'nombres'], ['dni', 'DNI']]
+      .filter(([k]) => !f[k]).map(([, label]) => label);
+    if (missing.length) return { text: `Completá ${listEs(missing)}` };
+    return { text: 'Agregar a Apple Wallet', ready: true };
+  }
+
+  function updateCta() {
+    const st = ctaState();
+    const btn = $('addBtn');
+    btn.disabled = !st.ready;
+    btn.classList.toggle('busy', Boolean(st.busy));
+    $('addBtnText').textContent = st.text;
   }
 
   /**
@@ -591,7 +611,10 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     const st = $(which + 'Status');
     if (state.scanned) { setStatus(st, '', ''); return; }
     setStatus(st, 'Buscando el código PDF417…', 'busy');
+    state.scanning = true;
+    updateCta();
     const text = await decodePdf417(img);
+    state.scanning = false;
     const parsed = text && parseDni(text);
     if (parsed) {
       state.scanned = true;
@@ -605,23 +628,28 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
       setStatus(st, 'No se encontró el código en esta cara. Puede estar en la otra: seguí con la siguiente foto.', '');
     }
     updateBackStep();
+    updateCta(); // sin esto el botón queda en "Leyendo el código…" cuando la lectura falla
   }
 
   // Al tocar "Agregar": armo strips + campos y hago un POST de nivel superior.
   // Safari abre la hoja "Agregar a Wallet" al recibir application/vnd.apple.pkpass.
   function submitPass() {
     readForm();
-    const st = $('buildStatus');
-    setStatus(st, 'Armando el pase…', 'busy');
+    setStatus($('buildStatus'), '', '');
+    state.building = true;
+    updateCta();
     try {
       $('pf_fields').value = JSON.stringify(state.fields);
       $('pf_strip1x').value = composeStrip(1).toDataURL('image/png');
       $('pf_strip2x').value = composeStrip(2).toDataURL('image/png');
       $('pf_strip3x').value = composeStrip(3).toDataURL('image/png');
       $('passForm').submit();
-      setTimeout(() => setStatus(st, '', ''), 4000);
+      // El POST de nivel superior no vuelve al JS: soltamos el botón cuando Wallet ya tuvo tiempo de abrirse.
+      setTimeout(() => { state.building = false; updateCta(); }, 4000);
     } catch (e) {
-      setStatus(st, 'No se pudo armar el pase: ' + (e?.message || e), 'bad');
+      state.building = false;
+      updateCta();
+      setStatus($('buildStatus'), 'No se pudo armar el pase: ' + (e?.message || e), 'bad');
     }
   }
 
