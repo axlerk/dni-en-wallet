@@ -25,10 +25,10 @@ import { buildPassJson, frontRowFields, fmtDni } from './pass-json.js';
   // El recorte de cada cara mantiene la proporción real de la tarjeta (ID-1, 85.6×54 mm), así no se corta nada:
   // dos caras entran como 186×117 con una franja de 3 pt arriba y abajo; solo el frente entra como 195×123 centrado.
   // Las franjas se pintan del color de fondo del pase, así que no se ven.
-  // Fondo blanco de lado a lado: sobre el celeste del pase queda celeste-blanco-celeste, como la bandera.
+  // Fondo negro de lado a lado: la foto del documento se recorta sola contra el negro y el celeste del pase.
   // Wallet recorta la fila de campos a 4 (probado en iPhone el 2026-09-12: con 6 campos descartó SEXO y REFERENCIA),
   // así que el resto de los datos vive en el dorso del pase, no encima de la foto.
-  const STRIP = { w: 375, h: 123, gap: 3, bg: '#ffffff' };
+  const STRIP = { w: 375, h: 123, gap: 3, bg: '#111111' };
   const CARD_RATIO = 85.6 / 54; // 1.585…
   const ZOOM = { min: 1, max: 5 };
 
