@@ -1,0 +1,22 @@
+# Cloudflare Workers: PWA estática (Static Assets) + Worker que firma /api/pass.
+# Deploy: npm run deploy (requiere `npx wrangler login` una vez). Secrets: npm run secrets (lee certs/*.pem).
+name = "dni-wallet"
+main = "worker/index.mjs"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+[assets]
+directory = "./public"
+# run_worker_first queda en false: los archivos de public/ se sirven antes que el Worker; al Worker solo llega /api/*.
+
+[[routes]]
+pattern = "dni.onegoodman.studio"
+custom_domain = true
+
+[vars]
+PASS_TYPE_ID = "pass.studio.onegoodman.dni"
+TEAM_ID = "6L425ZQW3T"
+ORG_NAME = "OneGoodMan Studio"
+
+[observability]
+enabled = true

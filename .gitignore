@@ -9,3 +9,5 @@ public/vendor/
 *.bundle
 *.zip
 .claude/
+.dev.vars
+.wrangler/

@@ -8,13 +8,19 @@
     "start": "node server/index.mjs",
     "dev": "node --watch server/index.mjs",
     "vendor": "node -e \"const fs=require('fs');fs.mkdirSync('public/vendor',{recursive:true});fs.copyFileSync('node_modules/@zxing/library/umd/index.min.js','public/vendor/zxing-library.min.js')\"",
-    "postinstall": "npm run vendor"
+    "postinstall": "npm run vendor",
+    "assets": "node scripts/gen-pass-assets.mjs",
+    "dev:worker": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "secrets": "sh scripts/put-secrets.sh"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
-    "@zxing/library": "^0.21.3",
-    "passkit-generator": "^3.3.0"
+    "@zxing/library": "^0.21.3"
+  },
+  "devDependencies": {
+    "wrangler": "^4.131.1"
   }
 }
