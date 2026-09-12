@@ -274,6 +274,16 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     return `${pre}-${n}-${dv}`;
   }
   const onlyLetter = (s) => (/^[A-Za-z]$/.test(String(s || '').trim()) ? String(s).trim().toUpperCase() : '');
+  /**
+   * El sexo no siempre viene como una letra suelta: hay códigos que traen la palabra entera.
+   * Solo aceptamos tokens completos y conocidos; nada de adivinar con una inicial cualquiera.
+   */
+  const SEXO_TOKENS = {
+    M: 'M', MASCULINO: 'M', VARON: 'M', 'VARÓN': 'M', H: 'M', HOMBRE: 'M',
+    F: 'F', FEMENINO: 'F', MUJER: 'F',
+    X: 'X', 'NO BINARIO': 'X', 'NO BINARIE': 'X',
+  };
+  const parseSexo = (v) => SEXO_TOKENS[String(v ?? '').trim().toUpperCase()] || '';
   const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
 
   function parseDni(raw) {
@@ -282,11 +292,13 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     const p = t.split('@').map((s) => s.trim());
     // El formato viejo tiene muchos más campos; el nuevo son 9 (a veces 8 sin CUIL).
     const f = p.length >= 14
-      ? { dni: onlyDigits(p[1]), ejemplar: onlyLetter(p[2]), apellido: p[4], nombres: p[5], nacionalidad: p[6] || '', nacimiento: p[7], sexo: onlyLetter(p[8]), emision: p[9], vencimiento: isDate(p[12]) ? p[12] : '', tramite: '', cuil: '' }
+      ? { dni: onlyDigits(p[1]), ejemplar: onlyLetter(p[2]), apellido: p[4], nombres: p[5], nacionalidad: p[6] || '', nacimiento: p[7], sexo: parseSexo(p[8]), emision: p[9], vencimiento: isDate(p[12]) ? p[12] : '', tramite: '', cuil: '' }
       : p.length >= 8
-        ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: onlyLetter(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '', nacionalidad: '', cuil: cuilFrom(p[8], onlyDigits(p[4])) }
+        ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: parseSexo(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '', nacionalidad: '', cuil: cuilFrom(p[8], onlyDigits(p[4])) }
         : null;
     if (!f || !f.dni || !f.apellido || !f.nombres) return null;
+    // Si en su posición no había nada reconocible, buscamos un token de sexo en el resto del código.
+    if (!f.sexo) f.sexo = p.map(parseSexo).find(Boolean) || '';
     if (!isDate(f.nacimiento)) f.nacimiento = '';
     if (!isDate(f.emision)) f.emision = '';
     return { ...f, raw: t };
