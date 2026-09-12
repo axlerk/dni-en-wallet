@@ -34,6 +34,7 @@
     <section class="step" id="step-front">
       <div class="step-h"><span class="n">1</span><h2>Frente del DNI</h2></div>
       <p class="hint">Apoyá el DNI sobre fondo liso y encuadralo dentro del marco de la cámara. Después podés ajustar: arrastrá para mover, pellizcá para acercar.</p>
+      <p class="hint">El código PDF417 se busca en las dos caras: en los DNI 2012 en adelante suele estar acá, en los anteriores en el dorso.</p>
       <div class="capture" id="frontCapture">
         <canvas id="frontCanvas" hidden aria-label="Encuadre del frente: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
@@ -49,7 +50,7 @@
     <!-- STEP 2: DORSO -->
     <section class="step" id="step-back">
       <div class="step-h"><span class="n">2</span><h2>Dorso del DNI</h2></div>
-      <p class="hint">Del dorso se lee el código PDF417 y se completan los datos solos. El encuadre se ajusta igual que el frente.</p>
+      <p class="hint">Si el código no estaba en el frente, se lee de acá. El encuadre se ajusta igual.</p>
       <div class="capture" id="backCapture">
         <canvas id="backCanvas" hidden aria-label="Encuadre del dorso: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
@@ -75,6 +76,7 @@
         <label class="f"><span>Ejemplar</span><input id="f_ejemplar" name="ejemplar" maxlength="1"></label>
         <label class="f"><span>Nº trámite</span><input id="f_tramite" name="tramite" inputmode="numeric"></label>
         <label class="f"><span>Emisión</span><input id="f_emision" name="emision" placeholder="DD/MM/AAAA"></label>
+        <label class="f"><span>Vencimiento</span><input id="f_vencimiento" name="vencimiento" placeholder="DD/MM/AAAA"></label>
         <label class="f span2"><span>Código leído (PDF417)</span><textarea id="f_raw" name="raw" rows="2" spellcheck="false"></textarea></label>
       </form>
     </section>
