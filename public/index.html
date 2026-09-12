@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>DNI en Wallet</title>
+  <meta name="description" content="Armá una copia de referencia de tu DNI como pase de Apple Wallet. Sin validez oficial.">
+  <meta name="theme-color" content="#163d66">
+
+  <!-- PWA / iOS home screen -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DNI Wallet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span>
+      <div>
+        <h1>DNI en Wallet</h1>
+        <p class="sub">Copia de referencia · <b>sin validez oficial</b></p>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+
+    <!-- STEP 1: FRENTE -->
+    <section class="step" id="step-front">
+      <div class="step-h"><span class="n">1</span><h2>Frente del DNI</h2></div>
+      <p class="hint">Apoyá el DNI sobre fondo liso y llená el encuadre. Se recorta al centro automáticamente.</p>
+      <label class="capture" for="frontFile">
+        <img id="frontPreview" alt="" hidden>
+        <span class="capture-cta" id="frontCta">📷 Sacar foto del frente</span>
+      </label>
+      <input type="file" id="frontFile" accept="image/*" capture="environment" hidden>
+    </section>
+
+    <!-- STEP 2: DORSO -->
+    <section class="step" id="step-back">
+      <div class="step-h"><span class="n">2</span><h2>Dorso del DNI</h2></div>
+      <p class="hint">Del dorso se lee el código PDF417 y se completan los datos solos.</p>
+      <label class="capture" for="backFile">
+        <img id="backPreview" alt="" hidden>
+        <span class="capture-cta" id="backCta">📷 Sacar foto del dorso</span>
+      </label>
+      <input type="file" id="backFile" accept="image/*" capture="environment" hidden>
+      <div class="status" id="scanStatus" hidden></div>
+    </section>
+
+    <!-- STEP 3: DATOS -->
+    <section class="step" id="step-data">
+      <div class="step-h"><span class="n">3</span><h2>Datos</h2></div>
+      <p class="hint">Revisá lo que se leyó. Si el código no se pudo leer, completá a mano.</p>
+      <form id="dataForm" class="grid" autocomplete="off">
+        <label class="f span2"><span>Apellido</span><input id="f_apellido" name="apellido" required></label>
+        <label class="f span2"><span>Nombres</span><input id="f_nombres" name="nombres" required></label>
+        <label class="f"><span>DNI</span><input id="f_dni" name="dni" inputmode="numeric" required></label>
+        <label class="f"><span>Sexo</span><input id="f_sexo" name="sexo" maxlength="1"></label>
+        <label class="f"><span>Nacimiento</span><input id="f_nacimiento" name="nacimiento" placeholder="DD/MM/AAAA"></label>
+        <label class="f"><span>Ejemplar</span><input id="f_ejemplar" name="ejemplar" maxlength="1"></label>
+        <label class="f"><span>Nº trámite</span><input id="f_tramite" name="tramite" inputmode="numeric"></label>
+        <label class="f"><span>Emisión</span><input id="f_emision" name="emision" placeholder="DD/MM/AAAA"></label>
+        <label class="f span2"><span>Código leído (PDF417)</span><textarea id="f_raw" name="raw" rows="2" spellcheck="false"></textarea></label>
+      </form>
+    </section>
+
+    <!-- STEP 4: PREVIEW + WALLET -->
+    <section class="step" id="step-pass">
+      <div class="step-h"><span class="n">4</span><h2>Vista previa</h2></div>
+
+      <div class="pass" id="pass" aria-live="polite">
+        <div class="p-head">
+          <div class="p-logo"><span class="mark sm" aria-hidden="true"></span><div class="lg"><b>DNI · Copia</b><span>República Argentina</span></div></div>
+          <div class="hfield"><div class="l">Ejemplar</div><div class="v" id="pv_ejemplar">—</div></div>
+        </div>
+        <div class="p-strip"><canvas id="stripCanvas" width="1125" height="369" aria-label="Frente y dorso del DNI"></canvas></div>
+        <div class="p-fields">
+          <div class="row">
+            <div class="fld"><div class="l">Apellido</div><div class="v" id="pv_apellido">—</div></div>
+            <div class="fld"><div class="l">Nombres</div><div class="v" id="pv_nombres">—</div></div>
+          </div>
+          <div class="row">
+            <div class="fld"><div class="l">DNI</div><div class="v" id="pv_dni">—</div></div>
+            <div class="fld"><div class="l">Nacimiento</div><div class="v" id="pv_nacimiento">—</div></div>
+            <div class="fld"><div class="l">Sexo</div><div class="v" id="pv_sexo">—</div></div>
+          </div>
+        </div>
+        <div class="p-bar">
+          <div class="bars" aria-hidden="true"></div>
+          <div class="code" id="pv_raw">—</div>
+        </div>
+        <div class="p-foot">Copia de referencia — sin validez oficial</div>
+      </div>
+
+      <button class="cta" id="addBtn" type="button" disabled>Agregar a Apple Wallet</button>
+      <p class="fine">El pase se firma en tu servidor y no se guarda nada. Si estás en modo pantalla de inicio y no aparece la hoja de Wallet, abrí esta página en Safari.</p>
+      <div class="status" id="buildStatus" hidden></div>
+    </section>
+
+    <!-- Hidden top-level form POST: the most reliable way for Safari to show the "Add to Wallet" sheet -->
+    <form id="passForm" method="post" action="api/pass" enctype="application/x-www-form-urlencoded" hidden>
+      <input type="hidden" name="fields" id="pf_fields">
+      <input type="hidden" name="strip1x" id="pf_strip1x">
+      <input type="hidden" name="strip2x" id="pf_strip2x">
+      <input type="hidden" name="strip3x" id="pf_strip3x">
+    </form>
+  </main>
+
+  <footer class="foot">Tus fotos y datos se procesan en tu teléfono. Solo el pase ya armado viaja al servidor para firmarse.</footer>
+
+  <!-- PDF417 decoder (ZXing, UMD). Library, not framework — el resto es JS puro. -->
+  <script src="vendor/zxing-library.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
