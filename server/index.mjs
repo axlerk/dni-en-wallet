@@ -6,7 +6,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPkpass, parsePassForm, fromBase64, signClientManifest } from './pkpass.mjs';
+import { createPkpass, parsePassForm, fromBase64, signClientPass } from './pkpass.mjs';
 import { PASS_ASSETS_B64 } from '../public/pass-assets.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -62,9 +62,16 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
     if (req.method === 'POST' && url.pathname === '/api/sign') {
-      const signature = await signClientManifest((await readBody(req, 64 * 1024)).toString('utf8'), certs);
-      res.writeHead(200, { 'Content-Type': 'application/octet-stream', 'Content-Length': signature.length, 'Cache-Control': 'no-store' });
-      return res.end(Buffer.from(signature));
+      const body = JSON.parse((await readBody(req, 8192)).toString('utf8'));
+      const out = await signClientPass({ cfg, certs, assets: ASSETS, fields: body.fields, strips: body.strips });
+      const payload = JSON.stringify({
+        passJson: Buffer.from(out.passJson).toString('utf8'),
+        manifest: Buffer.from(out.manifestBytes).toString('utf8'),
+        signature: Buffer.from(out.signature).toString('base64'),
+        serial: out.serial,
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      return res.end(payload);
     }
     if (req.method === 'POST' && url.pathname === '/api/pass') {
       const { fields, strips } = parsePassForm((await readBody(req, cfg.maxBody)).toString('utf8'));

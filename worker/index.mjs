@@ -2,11 +2,12 @@
  * así que acá solo llegan /api/* y lo que no matchea ningún archivo.
  * Nada se persiste. Certificados por secrets en base64: WWDR_PEM_B64, SIGNER_CERT_PEM_B64, SIGNER_KEY_PEM_B64.
  */
-import { createPkpass, parsePassForm, fromBase64, signClientManifest } from '../server/pkpass.mjs';
+import { createPkpass, parsePassForm, fromBase64, signClientPass } from '../server/pkpass.mjs';
 import { PASS_ASSETS_B64 } from '../public/pass-assets.js';
 
 const ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
 const td = new TextDecoder();
+const toBase64 = (u8) => btoa(String.fromCharCode(...u8));
 const MAX_BODY = 20 * 1024 * 1024;
 
 function certsFrom(env) {
@@ -29,13 +30,18 @@ export default {
       if (req.method === 'GET' && url.pathname === '/api/health') {
         return json({ ok: true, signing: Boolean(certsFrom(env)), passTypeId: cfg.passTypeId, teamId: cfg.teamId, orgName: cfg.orgName });
       }
-      // Camino principal: el teléfono arma el pase y acá solo se firma el manifest (hashes, sin foto).
+      // Camino principal: el teléfono arma el pase y acá solo entran los campos y los hashes del strip.
       if (req.method === 'POST' && url.pathname === '/api/sign') {
-        const manifest = await req.text();
-        const signature = await signClientManifest(manifest, certsFrom(env));
-        return new Response(signature, {
-          status: 200,
-          headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': String(signature.length), 'Cache-Control': 'no-store' },
+        const raw = await req.text();
+        if (raw.length > 8192) return text('Body demasiado grande', 413);
+        let body;
+        try { body = JSON.parse(raw); } catch { return text('Body no es JSON', 400); }
+        const out = await signClientPass({ cfg, certs: certsFrom(env), assets: ASSETS, fields: body.fields, strips: body.strips });
+        return json({
+          passJson: td.decode(out.passJson),
+          manifest: td.decode(out.manifestBytes),
+          signature: toBase64(out.signature),
+          serial: out.serial,
         });
       }
       // Camino de respaldo: sube la imagen ya armada y el servidor hace todo.

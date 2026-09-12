@@ -3,8 +3,8 @@
  * Todo ocurre en el teléfono, incluido el armado del .pkpass: al servidor solo se le manda el manifest (hashes)
  * para que lo firme con el certificado de Apple. El camino viejo (subir la imagen a /api/pass) queda de respaldo.
  */
-import { buildPassJson, frontRowFields, COLORS, clean } from './pass-json.js';
-import { buildManifest, zipStore, passSerial, utf8, fromBase64 } from './pkpass-build.js';
+import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
+import { zipStore, sha1hex, utf8, fromBase64 } from './pkpass-build.js';
 import { PASS_ASSETS_B64 } from './pass-assets.js';
 
 (() => {
@@ -20,7 +20,6 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     front: null,
     back: null,
     frontOnly: true,    // armar el pase solo con el frente (por defecto; el dorso sigue sirviendo para leer el código)
-    cfg: null,          // passTypeId/teamId/orgName, se piden una vez a /api/health
     scanning: false,    // buscando el PDF417
     building: false,    // armando el pase para Wallet
     cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
@@ -670,37 +669,31 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     canvas.toBlob((b) => (b ? resolve(b.arrayBuffer().then((a) => new Uint8Array(a))) : reject(new Error('canvas vacío'))), 'image/png');
   });
 
-  async function passConfig() {
-    if (state.cfg) return state.cfg;
-    const r = await fetch('api/health', { cache: 'no-store' });
-    const j = await r.json();
-    if (!j.signing) throw new Error('El servidor no tiene certificados');
-    state.cfg = { passTypeId: j.passTypeId, teamId: j.teamId, orgName: j.orgName };
-    return state.cfg;
-  }
-
   async function buildPassLocally() {
-    const cfg = await passConfig();
-    const f = state.fields;
-    const serial = await passSerial(clean(f.dni), clean(f.ejemplar), cfg.passTypeId);
     const [s1, s2, s3] = await Promise.all([canvasBytes(composeStrip(1)), canvasBytes(composeStrip(2)), canvasBytes(composeStrip(3))]);
-    const files = {
-      ...PASS_ASSETS,
-      'strip.png': s1,
-      'strip@2x.png': s2,
-      'strip@3x.png': s3,
-      'pass.json': utf8(JSON.stringify(buildPassJson(cfg, f, serial))),
-    };
-    const manifest = await buildManifest(files);
+    const images = { 'strip.png': s1, 'strip@2x.png': s2, 'strip@3x.png': s3 };
+    // Al servidor van los campos y el sha1 de cada imagen. La foto no: de ella solo viaja el hash.
+    const strips = Object.fromEntries(await Promise.all(Object.entries(images).map(async ([n, b]) => [n, await sha1hex(b)])));
     const res = await fetch('api/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: new TextDecoder().decode(manifest),
+      body: JSON.stringify({ fields: state.fields, strips }),
     });
     if (!res.ok) throw new Error(`firma: ${res.status} ${await res.text()}`);
-    files['manifest.json'] = manifest;
-    files['signature'] = new Uint8Array(await res.arrayBuffer());
-    return { bytes: zipStore(files), serial };
+    const out = await res.json();
+    // El pass.json lo arma el servidor (así nadie puede hacerle firmar un pase inventado): usamos sus bytes tal cual.
+    const files = {
+      ...PASS_ASSETS,
+      ...images,
+      'pass.json': utf8(out.passJson),
+      'manifest.json': utf8(out.manifest),
+      'signature': fromBase64(out.signature),
+    };
+    const manifest = JSON.parse(out.manifest);
+    for (const [name, hash] of Object.entries(strips)) {
+      if (manifest[name] !== hash) throw new Error('el manifest firmado no coincide con nuestras imágenes');
+    }
+    return { bytes: zipStore(files), serial: out.serial };
   }
 
   /**
@@ -770,6 +763,12 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     $('passFront').hidden = showBack;
     $('flipBtn').setAttribute('aria-pressed', String(showBack));
     $('flipBtn').setAttribute('aria-label', showBack ? 'Ver el frente del pase' : 'Ver el dorso del pase');
+  });
+  // Recargar limpia todo y además trae la última versión: en modo pantalla de inicio no hay otra manera.
+  $('resetBtn').addEventListener('click', () => {
+    const hayDatos = state.front || state.back || fieldIds.some((k) => $('f_' + k).value.trim());
+    if (hayDatos && !confirm('Se borran las fotos y los datos cargados. ¿Empezar de nuevo?')) return;
+    location.reload();
   });
   $('camShot').addEventListener('click', shoot);
   $('camCancel').addEventListener('click', closeCamera);
