@@ -1,0 +1,79 @@
+/* Contenido del pase: una sola fuente de verdad para el servidor (que firma) y para la PWA (que muestra la
+ * vista previa). Antes la vista previa era HTML escrito a mano y se iba despegando de lo que realmente
+ * llegaba a Wallet; ahora los dos leen el mismo pass.json.
+ *
+ * Módulo puro: sin fs, sin crypto, sin dependencias. El servidor lo importa desde ../public/pass-json.js y el
+ * navegador lo carga como módulo desde la misma carpeta estática (extensión .js: algunos servidores mandan
+ * .mjs como application/octet-stream y el navegador rechaza el módulo).
+ */
+
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\x00-\x1f]/g;
+export const clean = (s, max = 80) => String(s ?? '').replace(CONTROL_CHARS, '').trim().slice(0, max);
+export const fmtDni = (d) => { const n = clean(d, 12).replace(/\D/g, ''); return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
+
+/**
+ * Wallet dibuja secondary + auxiliary en una sola fila y descarta en silencio lo que no entra.
+ * Probado en un iPhone el 2026-09-12: con 2 secondary + 4 auxiliary mostró solo APELLIDO, NOMBRES, DNI y
+ * NACIMIENTO. Por eso declaramos exactamente esta cantidad y el resto de los datos va al dorso.
+ */
+export const FRONT_FIELDS_MAX = 4;
+
+export function buildPassJson(cfg, f, serial, now = new Date()) {
+  const apellido = clean(f.apellido), nombres = clean(f.nombres);
+  const dni = fmtDni(f.dni);
+  const raw = clean(f.raw, 400);
+  const barcodeMessage = raw || `${clean(f.tramite)}@${apellido}@${nombres}@${clean(f.sexo, 1)}@${clean(f.dni, 12)}@${clean(f.ejemplar, 1)}@${clean(f.nacimiento, 10)}@${clean(f.emision, 10)}`;
+  return {
+    formatVersion: 1,
+    passTypeIdentifier: cfg.passTypeId,
+    teamIdentifier: cfg.teamId,
+    serialNumber: serial,
+    organizationName: cfg.orgName,
+    description: `Copia de referencia del DNI ${dni}`,
+    logoText: 'DNI', // corto a propósito: Wallet trunca el logoText si el logo ocupa ancho
+    // Celeste de la bandera; el strip va sobre blanco → celeste, blanco, celeste.
+    foregroundColor: 'rgb(14,39,62)',
+    backgroundColor: 'rgb(116,172,223)',
+    labelColor: 'rgb(30,74,116)',
+    sharingProhibited: true,
+    barcodes: [
+      { format: raw ? 'PKBarcodeFormatPDF417' : 'PKBarcodeFormatQR', message: barcodeMessage, messageEncoding: 'iso-8859-1', altText: dni },
+    ],
+    // storeCard: el strip (la foto) va debajo del encabezado. primaryFields se omite a propósito:
+    // en storeCard se dibuja SOBRE el strip y taparía la foto.
+    storeCard: {
+      headerFields: [{ key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' }],
+      secondaryFields: [
+        { key: 'apellido', label: 'APELLIDO', value: apellido },
+        { key: 'nombres', label: 'NOMBRES', value: nombres },
+      ],
+      auxiliaryFields: [
+        { key: 'dni', label: 'DNI', value: dni },
+        { key: 'nac', label: 'NACIMIENTO', value: clean(f.nacimiento, 10) || '—' },
+      ],
+      // El dorso (botón "•••" en Wallet) guarda el registro completo en texto, incluido el descargo.
+      backFields: [
+        { key: 'aviso', label: 'AVISO', value: 'Copia personal de referencia. No reemplaza al DNI físico ni al DNI Digital de Mi Argentina y no tiene validez legal.' },
+        { key: 'nombre', label: 'APELLIDO Y NOMBRES', value: `${apellido} ${nombres}`.trim() || '—' },
+        { key: 'sexo', label: 'SEXO', value: clean(f.sexo, 1) || '—' },
+        { key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' },
+        { key: 'tramite', label: 'Nº DE TRÁMITE', value: clean(f.tramite, 20) || '—' },
+        // Solo se agregan los campos que el código realmente traía: el formato nuevo tiene CUIL y no vencimiento,
+        // el viejo (DNI 2009-2012) tiene vencimiento y nacionalidad.
+        ...(clean(f.cuil, 15) ? [{ key: 'cuil', label: 'CUIL', value: clean(f.cuil, 15) }] : []),
+        ...(clean(f.nacionalidad, 40) ? [{ key: 'nacionalidad', label: 'NACIONALIDAD', value: clean(f.nacionalidad, 40) }] : []),
+        { key: 'emision', label: 'FECHA DE EMISIÓN', value: clean(f.emision, 10) || '—' },
+        ...(clean(f.vencimiento, 10) ? [{ key: 'vencimiento', label: 'FECHA DE VENCIMIENTO', value: clean(f.vencimiento, 10) }] : []),
+        { key: 'codigo', label: 'CÓDIGO PDF417', value: raw || '—' },
+        { key: 'gen', label: 'GENERADO', value: now.toISOString().slice(0, 10) },
+      ],
+    },
+  };
+}
+
+/** Los 4 campos que Wallet realmente dibuja en la fila del frente, en orden. */
+export function frontRowFields(passJson) {
+  const s = passJson.storeCard;
+  return [...(s.secondaryFields || []), ...(s.auxiliaryFields || [])].slice(0, FRONT_FIELDS_MAX);
+}
