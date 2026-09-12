@@ -670,8 +670,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     const img = await loadImage(file);
     if (state[which]) URL.revokeObjectURL(state[which].img.src);
     state[which] = { img, zoom: 1, cx: 0.5, cy: 0.5 };
-    $(which + 'Canvas').hidden = false;
-    $(which + 'Capture').classList.add('has-img');
+    $(which + 'Canvas').hidden = false; // el CSS se entera solo: .capture:has(canvas:not([hidden]))
     $(which + 'Cta').textContent = '↻ Volver a sacar';
     renderFrame(which);
     renderPreviewStrip();
