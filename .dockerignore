@@ -1,0 +1,8 @@
+node_modules
+certs
+.env
+.git
+.claude
+*.bundle
+*.zip
+public/vendor
