@@ -25,9 +25,13 @@ b{font-weight:700}
 .brand h1{font-size:20px;font-weight:800}
 .brand .sub{margin:0;font-size:12.5px;color:rgba(234,241,248,.72)}
 .brand .sub b{color:#ffd88a}
-.reset{margin-left:auto;flex:none;font:inherit;font-size:12.5px;font-weight:600;color:#eaf1f8;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.26);border-radius:999px;padding:7px 11px;cursor:pointer;white-space:nowrap}
-.reset:hover{background:rgba(255,255,255,.24)}
-.reset:active{transform:translateY(1px)}
+/* Tirar para actualizar */
+.ptr{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:center;gap:8px;
+  height:56px;margin-top:-56px;font-size:13px;font-weight:600;color:#eaf1f8;background:var(--card-b);
+  padding-top:env(safe-area-inset-top);pointer-events:none}
+.ptr-ico{width:15px;height:15px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;transition:transform .15s}
+.ptr.ready .ptr-ico{transform:rotate(180deg)}
+.ptr.spin .ptr-ico{animation:spin .8s linear infinite}
 .mark{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);flex:none;position:relative}
 .mark::before{content:"";position:absolute;inset:8px 7px;border:2px solid #eaf1f8;border-radius:4px}
 .mark.sm{width:26px;height:26px;border-radius:6px}.mark.sm::before{inset:6px 5px;border-width:1.5px}

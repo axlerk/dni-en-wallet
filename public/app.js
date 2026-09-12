@@ -764,12 +764,47 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     $('flipBtn').setAttribute('aria-pressed', String(showBack));
     $('flipBtn').setAttribute('aria-label', showBack ? 'Ver el frente del pase' : 'Ver el dorso del pase');
   });
-  // Recargar limpia todo y además trae la última versión: en modo pantalla de inicio no hay otra manera.
-  $('resetBtn').addEventListener('click', () => {
-    const hayDatos = state.front || state.back || fieldIds.some((k) => $('f_' + k).value.trim());
-    if (hayDatos && !confirm('Se borran las fotos y los datos cargados. ¿Empezar de nuevo?')) return;
-    location.reload();
-  });
+  // ---------- Tirar para actualizar ----------
+  // En modo pantalla de inicio no hay barra del navegador ni gesto nativo: sin esto no se puede recargar
+  // la página (ni soltar los datos de la sesión anterior, ni tomar una versión nueva de la app).
+  (() => {
+    const bar = $('ptr'), txt = $('ptrTxt');
+    const MAX = 90, TRIGGER = 64;
+    let startY = null, pull = 0;
+
+    const move = (y) => {
+      pull = Math.min(MAX, y);
+      bar.style.transform = `translateY(${pull}px)`;
+      bar.classList.toggle('ready', pull >= TRIGGER);
+      txt.textContent = pull >= TRIGGER ? 'Soltá para actualizar' : 'Tirá para actualizar';
+    };
+    const reset = () => { bar.style.transition = 'transform .2s'; bar.style.transform = ''; bar.classList.remove('ready'); setTimeout(() => { bar.style.transition = ''; }, 220); };
+
+    document.addEventListener('touchstart', (e) => {
+      // Solo desde arriba de todo, con un dedo, y nunca sobre el encuadre o la cámara.
+      if (e.touches.length !== 1 || window.scrollY > 0 || document.body.classList.contains('cam-open')) { startY = null; return; }
+      if (e.target.closest('.capture, .cam')) { startY = null; return; }
+      startY = e.touches[0].clientY; pull = 0;
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (startY === null) return;
+      const dy = e.touches[0].clientY - startY;
+      if (dy <= 0 || window.scrollY > 0) { if (pull) { reset(); } startY = null; return; }
+      move(dy * 0.5); // resistencia, como el gesto nativo
+    }, { passive: true });
+
+    document.addEventListener('touchend', () => {
+      if (startY === null) return;
+      const go = pull >= TRIGGER;
+      startY = null;
+      if (!go) { reset(); return; }
+      bar.classList.add('spin');
+      txt.textContent = 'Actualizando…';
+      location.reload();
+    });
+  })();
+
   $('camShot').addEventListener('click', shoot);
   $('camCancel').addEventListener('click', closeCamera);
   $('camPick').addEventListener('click', () => { const w = cam.which; closeCamera(); $(w + 'File').click(); });
