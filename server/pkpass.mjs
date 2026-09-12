@@ -152,66 +152,9 @@ export function zipStore(files, date = new Date()) {
 }
 
 // ---------- Contenido del pase ----------
-// eslint-disable-next-line no-control-regex
-const CONTROL_CHARS = /[\x00-\x1f]/g;
-export const clean = (s, max = 80) => String(s ?? '').replace(CONTROL_CHARS, '').trim().slice(0, max);
-export const fmtDni = (d) => { const n = clean(d, 12).replace(/\D/g, ''); return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
-
-export function buildPassJson(cfg, f, serial, now = new Date()) {
-  const apellido = clean(f.apellido), nombres = clean(f.nombres);
-  const dni = fmtDni(f.dni);
-  const raw = clean(f.raw, 400);
-  const barcodeMessage = raw || `${clean(f.tramite)}@${apellido}@${nombres}@${clean(f.sexo, 1)}@${clean(f.dni, 12)}@${clean(f.ejemplar, 1)}@${clean(f.nacimiento, 10)}@${clean(f.emision, 10)}`;
-  return {
-    formatVersion: 1,
-    passTypeIdentifier: cfg.passTypeId,
-    teamIdentifier: cfg.teamId,
-    serialNumber: serial,
-    organizationName: cfg.orgName,
-    description: `Copia de referencia del DNI ${dni}`,
-    logoText: 'DNI', // corto a propósito: Wallet trunca el logoText si el logo ocupa ancho
-    // Celeste de la bandera con el logo en un recuadro blanco: celeste-blanco-celeste, sin copiar el escudo.
-    foregroundColor: 'rgb(14,39,62)',
-    backgroundColor: 'rgb(116,172,223)',
-    labelColor: 'rgb(30,74,116)',
-    sharingProhibited: true,
-    barcodes: [
-      { format: raw ? 'PKBarcodeFormatPDF417' : 'PKBarcodeFormatQR', message: barcodeMessage, messageEncoding: 'iso-8859-1', altText: dni },
-    ],
-    // storeCard: el strip (frente|dorso) va debajo del encabezado. primaryFields se omite a propósito:
-    // en storeCard se dibuja SOBRE el strip y taparía la foto.
-    storeCard: {
-      headerFields: [{ key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' }],
-      // Wallet dibuja secondary + auxiliary en una sola fila de 4 columnas y descarta el resto en silencio
-      // (probado en iPhone: con 6 campos mostró APELLIDO, NOMBRES, DNI y NACIMIENTO). Por eso van exactamente 4;
-      // sexo, CUIL, vencimiento y trámite se dibujan en el strip, y el descargo también (imagen = nadie lo descarta).
-      secondaryFields: [
-        { key: 'apellido', label: 'APELLIDO', value: apellido },
-        { key: 'nombres', label: 'NOMBRES', value: nombres },
-      ],
-      auxiliaryFields: [
-        { key: 'dni', label: 'DNI', value: dni },
-        { key: 'nac', label: 'NACIMIENTO', value: clean(f.nacimiento, 10) || '—' },
-      ],
-      backFields: [
-        { key: 'aviso', label: 'AVISO', value: 'Copia personal de referencia. No reemplaza al DNI físico ni al DNI Digital de Mi Argentina y no tiene validez legal.' },
-        // El dorso guarda todo en texto: lo de adelante entra en 4 columnas y el resto se dibuja en el strip.
-        { key: 'nombre', label: 'APELLIDO Y NOMBRES', value: `${apellido} ${nombres}`.trim() || '—' },
-        { key: 'sexo', label: 'SEXO', value: clean(f.sexo, 1) || '—' },
-        { key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' },
-        { key: 'tramite', label: 'Nº DE TRÁMITE', value: clean(f.tramite, 20) || '—' },
-        // Solo se agregan los campos que el código realmente traía: el formato nuevo tiene CUIL y no vencimiento,
-        // el viejo (DNI 2009-2012) tiene vencimiento y nacionalidad.
-        ...(clean(f.cuil, 15) ? [{ key: 'cuil', label: 'CUIL', value: clean(f.cuil, 15) }] : []),
-        ...(clean(f.nacionalidad, 40) ? [{ key: 'nacionalidad', label: 'NACIONALIDAD', value: clean(f.nacionalidad, 40) }] : []),
-        { key: 'emision', label: 'FECHA DE EMISIÓN', value: clean(f.emision, 10) || '—' },
-        ...(clean(f.vencimiento, 10) ? [{ key: 'vencimiento', label: 'FECHA DE VENCIMIENTO', value: clean(f.vencimiento, 10) }] : []),
-        { key: 'codigo', label: 'CÓDIGO PDF417', value: raw || '—' },
-        { key: 'gen', label: 'GENERADO', value: now.toISOString().slice(0, 10) },
-      ],
-    },
-  };
-}
+// Vive en public/ para que la PWA arme la misma vista previa con el mismo pass.json (una sola fuente de verdad).
+export { clean, fmtDni, buildPassJson } from '../public/pass-json.js';
+import { clean, buildPassJson } from '../public/pass-json.js';
 
 export function dataUrlToPng(s) {
   const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(s || ''));

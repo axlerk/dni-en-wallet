@@ -93,24 +93,18 @@
 
       <div class="pass" id="pass" aria-live="polite">
         <div class="p-head">
-          <div class="p-logo"><span class="mark sm" aria-hidden="true"></span><div class="lg"><b>DNI</b><span>República Argentina</span></div></div>
-          <div class="hfield"><div class="l">Ejemplar</div><div class="v" id="pv_ejemplar">—</div></div>
+          <div class="p-logo"><span class="mark sm" aria-hidden="true"></span><div class="lg"><b id="pv_logoText">DNI</b><span>República Argentina</span></div></div>
+          <div class="p-header-fields" id="pv_header"></div>
           <button type="button" class="p-flip" id="flipBtn" aria-pressed="false" aria-label="Ver el dorso del pase" title="Dorso del pase">•••</button>
         </div>
 
         <div class="p-face" id="passFront">
           <div class="p-strip"><canvas id="stripCanvas" width="1125" height="369" aria-label="Foto del DNI en el pase"></canvas></div>
-          <div class="p-fields">
-            <div class="row">
-              <div class="fld"><div class="l">Apellido</div><div class="v" id="pv_apellido">—</div></div>
-              <div class="fld"><div class="l">Nombres</div><div class="v" id="pv_nombres">—</div></div>
-              <div class="fld"><div class="l">DNI</div><div class="v" id="pv_dni">—</div></div>
-              <div class="fld"><div class="l">Nacimiento</div><div class="v" id="pv_nacimiento">—</div></div>
-            </div>
-          </div>
+          <div class="p-fields"><div class="row" id="pv_fields"></div></div>
           <div class="p-bar">
             <div class="bars" aria-hidden="true"></div>
-            <div class="code" id="pv_raw">—</div>
+            <div class="alt" id="pv_altText"></div>
+            <div class="code"><span id="pv_codeFormat">PDF417</span> · <span id="pv_raw">—</span></div>
           </div>
         </div>
 
@@ -149,6 +143,6 @@
 
   <!-- PDF417 decoder (ZXing, UMD). Library, not framework — el resto es JS puro. -->
   <script src="vendor/zxing-library.min.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>
