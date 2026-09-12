@@ -11,3 +11,4 @@ public/vendor/
 .claude/
 .dev.vars
 .wrangler/
+CLAUDE.md
