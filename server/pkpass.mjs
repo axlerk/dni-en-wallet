@@ -153,7 +153,6 @@ export function zipStore(files, date = new Date()) {
 
 // ---------- Contenido del pase ----------
 // Vive en public/ para que la PWA arme la misma vista previa con el mismo pass.json (una sola fuente de verdad).
-export { clean, fmtDni, buildPassJson } from '../public/pass-json.js';
 import { clean, buildPassJson } from '../public/pass-json.js';
 
 export function dataUrlToPng(s) {
