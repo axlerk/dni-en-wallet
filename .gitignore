@@ -8,3 +8,4 @@ public/vendor/
 .DS_Store
 *.bundle
 *.zip
+.claude/
