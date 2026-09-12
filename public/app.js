@@ -283,8 +283,60 @@
     $('addBtn').disabled = !(state.front && state.back && f.apellido && f.nombres && f.dni);
   }
 
+  // ---------- Cámara en vivo con marco guía ----------
+  // El video se muestra "cover" a pantalla completa; el marco guía tiene la proporción de media mitad del strip.
+  // Al disparar, se recorta del frame de video exactamente el área del marco → misma imagen que va al pase.
+  const cam = { stream: null, which: null };
+
+  async function openCamera(which) {
+    if (!navigator.mediaDevices?.getUserMedia) { $(which + 'File').click(); return; }
+    cam.which = which;
+    try {
+      cam.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 2160 } },
+        audio: false,
+      });
+    } catch (e) {
+      setStatus($(which + 'Status'), 'No se pudo abrir la cámara (' + (e?.name || e) + '). Elegí una foto de la galería.', 'warn');
+      $(which + 'File').click();
+      return;
+    }
+    const v = $('camVideo');
+    v.srcObject = cam.stream;
+    $('cam').hidden = false;
+    document.body.classList.add('cam-open');
+    try { await v.play(); } catch { /* autoplay ya lo hace */ }
+  }
+
+  function closeCamera() {
+    cam.stream?.getTracks().forEach((t) => t.stop());
+    cam.stream = null;
+    $('camVideo').srcObject = null;
+    $('cam').hidden = true;
+    document.body.classList.remove('cam-open');
+  }
+
+  /** Recorta del frame de video el rectángulo del marco guía (en px del video) y lo manda al flujo normal de foto. */
+  function shoot() {
+    const v = $('camVideo');
+    const vw = v.videoWidth, vh = v.videoHeight;
+    if (!vw || !vh) return;
+    const vr = v.getBoundingClientRect(), gr = $('camGuide').getBoundingClientRect();
+    const s = Math.max(vr.width / vw, vr.height / vh); // px CSS por px de video (object-fit: cover)
+    const offX = vr.left + (vr.width - vw * s) / 2, offY = vr.top + (vr.height - vh * s) / 2;
+    const sx = clamp((gr.left - offX) / s, 0, vw), sy = clamp((gr.top - offY) / s, 0, vh);
+    const sw = Math.min(gr.width / s, vw - sx), sh = Math.min(gr.height / s, vh - sy);
+    const c = document.createElement('canvas');
+    c.width = Math.round(sw); c.height = Math.round(sh);
+    c.getContext('2d').drawImage(v, sx, sy, sw, sh, 0, 0, c.width, c.height);
+    const which = cam.which;
+    closeCamera();
+    c.toBlob((b) => onPhoto(which, new File([b], which + '.jpg', { type: 'image/jpeg' })), 'image/jpeg', 0.95);
+  }
+
   async function onPhoto(which, file) {
     if (!file) return;
+    setStatus($(which + 'Status'), '', '');
     const img = await loadImage(file);
     if (state[which]) URL.revokeObjectURL(state[which].img.src);
     state[which] = { img, zoom: 1, cx: 0.5, cy: 0.5 };
@@ -296,7 +348,7 @@
     updateCta();
 
     if (which === 'back') {
-      const st = $('scanStatus');
+      const st = $('backStatus');
       setStatus(st, 'Leyendo el código PDF417…', 'busy');
       const text = await decodePdf417(img);
       const parsed = text && parseDni(text);
@@ -330,12 +382,17 @@
   // ---------- Wiring ----------
   for (const which of ['front', 'back']) {
     $(which + 'File').addEventListener('change', (e) => onPhoto(which, e.target.files[0]));
-    // Sin foto, todo el marco abre la cámara. Con foto, el marco es para encuadrar y solo el botón vuelve a sacar.
+    $(which + 'Cta').addEventListener('click', () => openCamera(which));
+    // Sin foto, tocar el marco vacío también abre la cámara. Con foto, el marco es para encuadrar.
     $(which + 'Capture').addEventListener('click', (e) => {
-      if (!state[which] && !e.target.closest('label')) $(which + 'File').click();
+      if (!state[which] && !e.target.closest('button, label')) openCamera(which);
     });
     wireGestures(which);
   }
+  $('camShot').addEventListener('click', shoot);
+  $('camCancel').addEventListener('click', closeCamera);
+  $('camPick').addEventListener('click', () => { const w = cam.which; closeCamera(); $(w + 'File').click(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('cam').hidden) closeCamera(); });
   window.addEventListener('resize', () => { for (const w of ['front', 'back']) if (state[w]) scheduleRender(w); });
   $('dataForm').addEventListener('input', readForm);
   $('f_raw').addEventListener('change', () => { const p = parseDni($('f_raw').value); if (p) fillForm(p); });
