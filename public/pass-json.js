@@ -43,7 +43,11 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
     // storeCard: el strip (la foto) va debajo del encabezado. primaryFields se omite a propósito:
     // en storeCard se dibuja SOBRE el strip y taparía la foto.
     storeCard: {
-      headerFields: [{ key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' }],
+      // headerFields admite hasta 3 y es lo único que se puede sumar adelante sin tapar la foto.
+      headerFields: [
+        { key: 'sexo', label: 'SEXO', value: clean(f.sexo, 1) || '—' },
+        { key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' },
+      ],
       secondaryFields: [
         { key: 'apellido', label: 'APELLIDO', value: apellido },
         { key: 'nombres', label: 'NOMBRES', value: nombres },

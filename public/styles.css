@@ -105,7 +105,7 @@ body.cam-open{overflow:hidden}
 .p-header-fields{margin-left:auto;display:flex;gap:12px}
 .hfield{text-align:right}.hfield .l,.fld .l{font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--pass-ink-2)}
 .hfield .v{font-size:15px;font-weight:700;font-family:ui-monospace,Menlo,monospace}
-.p-strip{background:#fff}.p-strip canvas{display:block;width:100%;height:auto;aspect-ratio:375/123}
+.p-strip{background:#111}.p-strip canvas{display:block;width:100%;height:auto;aspect-ratio:375/123}
 .p-fields{padding:11px 14px 4px}
 .p-fields .row{display:flex;gap:9px}
 .fld{min-width:0;flex:1}.fld .v{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-variant-numeric:tabular-nums}
