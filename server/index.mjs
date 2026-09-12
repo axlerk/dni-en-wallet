@@ -24,16 +24,20 @@ const cfg = {
 };
 
 // ---------- Certificados (se leen una vez; si faltan, el servidor arranca igual y /api/pass devuelve 503) ----------
+// Dos fuentes: archivos PEM en CERT_DIR (local) o variables WWDR_PEM_B64 / SIGNER_CERT_PEM_B64 / SIGNER_KEY_PEM_B64
+// con el PEM en base64 (PaaS sin disco persistente: Render, Fly, Railway...). Las variables tienen prioridad.
 let certs = null;
 try {
+  const fromEnv = (name) => (process.env[name] ? Buffer.from(process.env[name], 'base64') : null);
+  const fromFile = (f) => fs.readFileSync(path.join(cfg.certDir, f));
   certs = {
-    wwdr: fs.readFileSync(path.join(cfg.certDir, 'wwdr.pem')),
-    signerCert: fs.readFileSync(path.join(cfg.certDir, 'signerCert.pem')),
-    signerKey: fs.readFileSync(path.join(cfg.certDir, 'signerKey.pem')),
+    wwdr: fromEnv('WWDR_PEM_B64') || fromFile('wwdr.pem'),
+    signerCert: fromEnv('SIGNER_CERT_PEM_B64') || fromFile('signerCert.pem'),
+    signerKey: fromEnv('SIGNER_KEY_PEM_B64') || fromFile('signerKey.pem'),
     signerKeyPassphrase: cfg.keyPass,
   };
 } catch (e) {
-  console.warn(`[certs] No se encontraron certificados en ${cfg.certDir} (${e.message}). La PWA funciona, la firma no.`);
+  console.warn(`[certs] No se encontraron certificados en ${cfg.certDir} ni en variables *_PEM_B64 (${e.message}). La PWA funciona, la firma no.`);
 }
 
 // Assets fijos del pase (icono obligatorio, logo opcional)
