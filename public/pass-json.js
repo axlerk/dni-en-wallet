@@ -87,8 +87,9 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
         {
           key: 'miargentina',
           label: 'DNI DIGITAL OFICIAL',
-          value: 'Mi Argentina: https://mi.argentina.gob.ar/',
-          attributedValue: '<a href="https://mi.argentina.gob.ar/">Abrir Mi Argentina</a>',
+          // Abre el sitio, no la app: Mi Argentina no tiene universal link (probado en iPhone, 2026-09-12).
+          value: 'mi.argentina.gob.ar',
+          attributedValue: '<a href="https://mi.argentina.gob.ar/">Abrir mi.argentina.gob.ar</a>',
         },
         { key: 'gen', label: 'GENERADO', value: now.toISOString().slice(0, 10) },
       ],

@@ -275,15 +275,14 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   }
   const onlyLetter = (s) => (/^[A-Za-z]$/.test(String(s || '').trim()) ? String(s).trim().toUpperCase() : '');
   /**
-   * El sexo no siempre viene como una letra suelta: hay códigos que traen la palabra entera.
-   * Solo aceptamos tokens completos y conocidos; nada de adivinar con una inicial cualquiera.
+   * El sexo no siempre viene como letra. El código del DNI Digital de Mi Argentina lo trae como número
+   * (un usuario con "Sexo M" en su documento tenía un 1 en ese campo, 2026-09-12), que es el ISO 5218:
+   * 1 = masculino, 2 = femenino. El 0 y el 9 del estándar son "desconocido" y "no aplica": los dejamos vacíos
+   * para que se elija a mano.
    */
-  const SEXO_TOKENS = {
-    M: 'M', MASCULINO: 'M', VARON: 'M', 'VARÓN': 'M', H: 'M', HOMBRE: 'M',
-    F: 'F', FEMENINO: 'F', MUJER: 'F',
-    X: 'X', 'NO BINARIO': 'X', 'NO BINARIE': 'X',
-  };
+  const SEXO_TOKENS = { M: 'M', F: 'F', X: 'X', 1: 'M', 2: 'F' };
   const parseSexo = (v) => SEXO_TOKENS[String(v ?? '').trim().toUpperCase()] || '';
+
   const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
 
   function parseDni(raw) {
@@ -297,8 +296,6 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
         ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: parseSexo(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '', nacionalidad: '', cuil: cuilFrom(p[8], onlyDigits(p[4])) }
         : null;
     if (!f || !f.dni || !f.apellido || !f.nombres) return null;
-    // Si en su posición no había nada reconocible, buscamos un token de sexo en el resto del código.
-    if (!f.sexo) f.sexo = p.map(parseSexo).find(Boolean) || '';
     if (!isDate(f.nacimiento)) f.nacimiento = '';
     if (!isDate(f.emision)) f.emision = '';
     return { ...f, raw: t };
