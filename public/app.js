@@ -14,13 +14,17 @@
   const state = {
     front: null,
     back: null,
-    scanned: false, // ya se leyó el PDF417 en alguna de las dos caras
-    fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', raw: '' },
+    frontOnly: false, // armar el pase solo con el frente
+    scanned: false,   // ya se leyó el PDF417 en alguna de las dos caras
+    fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', nacionalidad: '', cuil: '', raw: '' },
   };
 
-  // Strip de storeCard: 375×123 pt en 1x/2x/3x. Cada lado ocupa una mitad menos el separador → 186×123.
-  // El marco de captura tiene la misma proporción (CSS aspect-ratio), así lo que se ve en el marco es lo que va al pase.
-  const STRIP = { w: 375, h: 123, gap: 3 };
+  // Strip de storeCard: 375×123 pt en 1x/2x/3x.
+  // El recorte de cada cara mantiene la proporción real de la tarjeta (ID-1, 85.6×54 mm), así no se corta nada:
+  // dos caras entran como 186×117 con una franja de 3 pt arriba y abajo; solo el frente entra como 195×123 centrado.
+  // Las franjas se pintan del color de fondo del pase, así que no se ven.
+  const STRIP = { w: 375, h: 123, gap: 3, bg: '#163d66' };
+  const CARD_RATIO = 85.6 / 54; // 1.585…
   const ZOOM = { min: 1, max: 5 };
 
   // ---------- Utilidades de imagen ----------
@@ -56,17 +60,35 @@
     ctx.drawImage(side.img, r.sx, r.sy, r.vw, r.vh, x, y, w, h);
   }
 
-  /** Compone frente | dorso lado a lado en un canvas de `scale`x. */
+  /** Rectángulo de proporción `ratio` centrado dentro de (x, y, w, h), sin recortar. */
+  function fitRect(x, y, w, h, ratio) {
+    const rw = Math.min(w, h * ratio), rh = rw / ratio;
+    return { x: x + (w - rw) / 2, y: y + (h - rh) / 2, w: rw, h: rh };
+  }
+
+  /** True si el pase se arma solo con el frente (por elección o porque todavía no hay dorso). */
+  const onlyFront = () => state.frontOnly || !state.back;
+
+  /** Compone el strip: frente | dorso, o solo el frente centrado. */
   function composeStrip(scale) {
     const c = document.createElement('canvas');
     c.width = STRIP.w * scale; c.height = STRIP.h * scale;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#0b1a2b';
+    ctx.fillStyle = STRIP.bg;
     ctx.fillRect(0, 0, c.width, c.height);
-    const gap = Math.round(STRIP.gap * scale);
-    const half = (c.width - gap) / 2;
-    if (state.front) drawCrop(ctx, state.front, 0, 0, half, c.height);
-    if (state.back) drawCrop(ctx, state.back, half + gap, 0, half, c.height);
+    const draw = (side, slot) => {
+      if (!side) return;
+      const r = fitRect(slot.x, 0, slot.w, c.height, CARD_RATIO);
+      drawCrop(ctx, side, r.x, r.y, r.w, r.h);
+    };
+    if (onlyFront()) {
+      draw(state.front, { x: 0, w: c.width });
+    } else {
+      const gap = Math.round(STRIP.gap * scale);
+      const half = (c.width - gap) / 2;
+      draw(state.front, { x: 0, w: half });
+      draw(state.back, { x: half + gap, w: half });
+    }
     return c;
   }
 
@@ -198,6 +220,21 @@
    *      @dni@ejemplar@?@apellido@nombres@nacionalidad@nacimiento@sexo@emision@?@?@vencimiento@...
    */
   const isDate = (s) => /^\d{2}\/\d{2}\/\d{4}$/.test(String(s || '').trim());
+  /**
+   * El formato nuevo cierra con 3 dígitos: los 2 del prefijo del CUIL y el dígito verificador.
+   * Reconstruimos el CUIL completo y lo validamos con el módulo 11; si no cierra, no lo mostramos.
+   */
+  function cuilFrom(tail, dni) {
+    const t = String(tail || '').trim(), n = String(dni || '').padStart(8, '0');
+    if (!/^\d{3}$/.test(t) || !/^\d{8}$/.test(n)) return '';
+    const pre = t.slice(0, 2), dv = Number(t[2]);
+    if (!['20', '23', '24', '27', '30', '33', '34'].includes(pre)) return '';
+    const w = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+    const sum = (pre + n).split('').reduce((a, d, i) => a + Number(d) * w[i], 0);
+    const r = sum % 11;
+    if (r > 1 && 11 - r !== dv) return ''; // con resto 0 o 1 hay casos especiales: aceptamos lo que diga el código
+    return `${pre}-${n}-${dv}`;
+  }
   const onlyLetter = (s) => (/^[A-Za-z]$/.test(String(s || '').trim()) ? String(s).trim().toUpperCase() : '');
   const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
 
@@ -207,9 +244,9 @@
     const p = t.split('@').map((s) => s.trim());
     // El formato viejo tiene muchos más campos; el nuevo son 9 (a veces 8 sin CUIL).
     const f = p.length >= 14
-      ? { dni: onlyDigits(p[1]), ejemplar: onlyLetter(p[2]), apellido: p[4], nombres: p[5], nacimiento: p[7], sexo: onlyLetter(p[8]), emision: p[9], vencimiento: isDate(p[12]) ? p[12] : '', tramite: '' }
+      ? { dni: onlyDigits(p[1]), ejemplar: onlyLetter(p[2]), apellido: p[4], nombres: p[5], nacionalidad: p[6] || '', nacimiento: p[7], sexo: onlyLetter(p[8]), emision: p[9], vencimiento: isDate(p[12]) ? p[12] : '', tramite: '', cuil: '' }
       : p.length >= 8
-        ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: onlyLetter(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '' }
+        ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: onlyLetter(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '', nacionalidad: '', cuil: cuilFrom(p[8], onlyDigits(p[4])) }
         : null;
     if (!f || !f.dni || !f.apellido || !f.nombres) return null;
     if (!isDate(f.nacimiento)) f.nacimiento = '';
@@ -260,7 +297,7 @@
   }
 
   // ---------- UI ----------
-  const fieldIds = ['apellido', 'nombres', 'dni', 'sexo', 'nacimiento', 'ejemplar', 'tramite', 'emision', 'vencimiento', 'raw'];
+  const fieldIds = ['apellido', 'nombres', 'dni', 'sexo', 'nacimiento', 'ejemplar', 'tramite', 'emision', 'vencimiento', 'nacionalidad', 'cuil', 'raw'];
 
   function setStatus(el, text, kind) {
     el.hidden = !text;
@@ -293,11 +330,45 @@
     $('pv_sexo').textContent = f.sexo || '—';
     $('pv_ejemplar').textContent = f.ejemplar || '—';
     $('pv_raw').textContent = f.raw || 'Sin código — se usará un QR con los datos';
+    renderPassBack();
+  }
+
+  // El dorso del pase: los mismos backFields que arma el servidor. En Wallet se ve tocando "•••".
+  function renderPassBack() {
+    const f = state.fields;
+    const rows = [
+      ['Aviso', 'Copia personal de referencia. No reemplaza al DNI físico ni al DNI Digital de Mi Argentina y no tiene validez legal.'],
+      ['Nº de trámite', f.tramite],
+      ['CUIL', f.cuil],
+      ['Nacionalidad', f.nacionalidad],
+      ['Fecha de emisión', f.emision],
+      ['Fecha de vencimiento', f.vencimiento],
+      ['Código PDF417', f.raw],
+    ].filter(([, v]) => v);
+    $('pv_back').innerHTML = '';
+    for (const [l, v] of rows) {
+      const row = document.createElement('div');
+      row.className = 'bf';
+      const lab = document.createElement('div'); lab.className = 'l'; lab.textContent = l.toUpperCase();
+      const val = document.createElement('div'); val.className = 'v'; val.textContent = v;
+      row.append(lab, val);
+      $('pv_back').append(row);
+    }
   }
 
   function updateCta() {
     const f = state.fields;
-    $('addBtn').disabled = !(state.front && state.back && f.apellido && f.nombres && f.dni);
+    const photos = state.front && (state.frontOnly || state.back);
+    $('addBtn').disabled = !(photos && f.apellido && f.nombres && f.dni);
+  }
+
+  /** Modo "solo el frente": el dorso pasa a ser opcional y el strip muestra una sola cara. */
+  function setFrontOnly(on) {
+    state.frontOnly = on;
+    $('step-back').classList.toggle('optional', on);
+    $('backHint').hidden = !on;
+    renderPreviewStrip();
+    updateCta();
   }
 
   // ---------- Cámara en vivo con marco guía ----------
@@ -418,6 +489,14 @@
     });
     wireGestures(which);
   }
+  $('frontOnly').addEventListener('change', (e) => setFrontOnly(e.target.checked));
+  $('flipBtn').addEventListener('click', () => {
+    const showBack = $('passBack').hidden;
+    $('passBack').hidden = !showBack;
+    $('passFront').hidden = showBack;
+    $('flipBtn').setAttribute('aria-pressed', String(showBack));
+    $('flipBtn').setAttribute('aria-label', showBack ? 'Ver el frente del pase' : 'Ver el dorso del pase');
+  });
   $('camShot').addEventListener('click', shoot);
   $('camCancel').addEventListener('click', closeCamera);
   $('camPick').addEventListener('click', () => { const w = cam.which; closeCamera(); $(w + 'File').click(); });
