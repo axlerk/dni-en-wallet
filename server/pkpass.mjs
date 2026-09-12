@@ -169,7 +169,7 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
     serialNumber: serial,
     organizationName: cfg.orgName,
     description: `Copia de referencia del DNI ${dni}`,
-    logoText: 'DNI · Copia',
+    logoText: 'DNI', // corto a propósito: Wallet trunca el logoText si el logo ocupa ancho
     foregroundColor: 'rgb(234,241,248)',
     backgroundColor: 'rgb(22,61,102)',
     labelColor: 'rgb(170,190,210)',
@@ -194,8 +194,11 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
       backFields: [
         { key: 'aviso', label: 'AVISO', value: 'Copia personal de referencia. No reemplaza al DNI físico ni al DNI Digital de Mi Argentina y no tiene validez legal.' },
         { key: 'tramite', label: 'Nº DE TRÁMITE', value: clean(f.tramite, 20) || '—' },
+        // Solo se agregan los campos que el código realmente traía: el formato nuevo tiene CUIL y no vencimiento,
+        // el viejo (DNI 2009-2012) tiene vencimiento y nacionalidad.
+        ...(clean(f.cuil, 15) ? [{ key: 'cuil', label: 'CUIL', value: clean(f.cuil, 15) }] : []),
+        ...(clean(f.nacionalidad, 40) ? [{ key: 'nacionalidad', label: 'NACIONALIDAD', value: clean(f.nacionalidad, 40) }] : []),
         { key: 'emision', label: 'FECHA DE EMISIÓN', value: clean(f.emision, 10) || '—' },
-        // El formato viejo del PDF417 (DNI 2009-2012) trae vencimiento; el nuevo no.
         ...(clean(f.vencimiento, 10) ? [{ key: 'vencimiento', label: 'FECHA DE VENCIMIENTO', value: clean(f.vencimiento, 10) }] : []),
         { key: 'codigo', label: 'CÓDIGO PDF417', value: raw || '—' },
         { key: 'gen', label: 'GENERADO', value: now.toISOString().slice(0, 10) },

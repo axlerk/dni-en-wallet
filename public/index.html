@@ -49,8 +49,11 @@
 
     <!-- STEP 2: DORSO -->
     <section class="step" id="step-back">
-      <div class="step-h"><span class="n">2</span><h2>Dorso del DNI</h2></div>
+      <div class="step-h"><span class="n">2</span><h2>Dorso del DNI</h2>
+        <label class="toggle"><input type="checkbox" id="frontOnly"><span>Solo el frente</span></label>
+      </div>
       <p class="hint">Si el código no estaba en el frente, se lee de acá. El encuadre se ajusta igual.</p>
+      <p class="hint" id="backHint" hidden>El dorso queda afuera: el pase muestra el frente solo, centrado y más grande.</p>
       <div class="capture" id="backCapture">
         <canvas id="backCanvas" hidden aria-label="Encuadre del dorso: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
@@ -77,6 +80,8 @@
         <label class="f"><span>Nº trámite</span><input id="f_tramite" name="tramite" inputmode="numeric"></label>
         <label class="f"><span>Emisión</span><input id="f_emision" name="emision" placeholder="DD/MM/AAAA"></label>
         <label class="f"><span>Vencimiento</span><input id="f_vencimiento" name="vencimiento" placeholder="DD/MM/AAAA"></label>
+        <label class="f"><span>CUIL</span><input id="f_cuil" name="cuil" inputmode="numeric" placeholder="20-12345678-0"></label>
+        <label class="f"><span>Nacionalidad</span><input id="f_nacionalidad" name="nacionalidad"></label>
         <label class="f span2"><span>Código leído (PDF417)</span><textarea id="f_raw" name="raw" rows="2" spellcheck="false"></textarea></label>
       </form>
     </section>
@@ -87,29 +92,39 @@
 
       <div class="pass" id="pass" aria-live="polite">
         <div class="p-head">
-          <div class="p-logo"><span class="mark sm" aria-hidden="true"></span><div class="lg"><b>DNI · Copia</b><span>República Argentina</span></div></div>
+          <div class="p-logo"><span class="mark sm" aria-hidden="true"></span><div class="lg"><b>DNI</b><span>República Argentina</span></div></div>
           <div class="hfield"><div class="l">Ejemplar</div><div class="v" id="pv_ejemplar">—</div></div>
+          <button type="button" class="p-flip" id="flipBtn" aria-pressed="false" aria-label="Ver el dorso del pase" title="Dorso del pase">•••</button>
         </div>
-        <div class="p-strip"><canvas id="stripCanvas" width="1125" height="369" aria-label="Frente y dorso del DNI"></canvas></div>
-        <div class="p-fields">
-          <div class="row">
-            <div class="fld"><div class="l">Apellido</div><div class="v" id="pv_apellido">—</div></div>
-            <div class="fld"><div class="l">Nombres</div><div class="v" id="pv_nombres">—</div></div>
+
+        <div class="p-face" id="passFront">
+          <div class="p-strip"><canvas id="stripCanvas" width="1125" height="369" aria-label="Foto del DNI en el pase"></canvas></div>
+          <div class="p-fields">
+            <div class="row">
+              <div class="fld"><div class="l">Apellido</div><div class="v" id="pv_apellido">—</div></div>
+              <div class="fld"><div class="l">Nombres</div><div class="v" id="pv_nombres">—</div></div>
+            </div>
+            <div class="row">
+              <div class="fld"><div class="l">DNI</div><div class="v" id="pv_dni">—</div></div>
+              <div class="fld"><div class="l">Nacimiento</div><div class="v" id="pv_nacimiento">—</div></div>
+              <div class="fld"><div class="l">Sexo</div><div class="v" id="pv_sexo">—</div></div>
+            </div>
           </div>
-          <div class="row">
-            <div class="fld"><div class="l">DNI</div><div class="v" id="pv_dni">—</div></div>
-            <div class="fld"><div class="l">Nacimiento</div><div class="v" id="pv_nacimiento">—</div></div>
-            <div class="fld"><div class="l">Sexo</div><div class="v" id="pv_sexo">—</div></div>
+          <div class="p-bar">
+            <div class="bars" aria-hidden="true"></div>
+            <div class="code" id="pv_raw">—</div>
           </div>
         </div>
-        <div class="p-bar">
-          <div class="bars" aria-hidden="true"></div>
-          <div class="code" id="pv_raw">—</div>
+
+        <!-- Dorso del pase: en Wallet se abre con el botón "•••" y solo admite texto -->
+        <div class="p-face" id="passBack" hidden>
+          <div class="p-back" id="pv_back"></div>
         </div>
+
         <div class="p-foot">Copia de referencia — sin validez oficial</div>
       </div>
 
-      <button class="cta" id="addBtn" type="button" disabled>Agregar a Apple Wallet</button>
+      <button class="cta" id="addBtn" type="button" disabled><span class="cta-ico" aria-hidden="true"></span>Agregar a Apple Wallet</button>
       <p class="fine">El pase se firma en tu servidor y no se guarda nada. Si estás en modo pantalla de inicio y no aparece la hoja de Wallet, abrí esta página en Safari.</p>
       <div class="status" id="buildStatus" hidden></div>
     </section>
