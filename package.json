@@ -1,0 +1,20 @@
+{
+  "name": "dni-wallet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Copia de referencia del DNI como pase de Apple Wallet (.pkpass). PWA en JS puro + servidor de firma mínimo.",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "vendor": "node -e \"require('fs').copyFileSync('node_modules/@zxing/library/umd/index.min.js','public/vendor/zxing-library.min.js')\"",
+    "postinstall": "npm run vendor"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@zxing/library": "^0.21.3",
+    "passkit-generator": "^3.3.0"
+  }
+}
