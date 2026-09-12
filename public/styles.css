@@ -57,17 +57,18 @@ b{font-weight:700}
 
 /* Marco de captura con la proporción real de la tarjeta (ID-1, 85.6×54): lo que entra al marco entra entero al pase */
 .capture{display:grid;place-items:center;position:relative;aspect-ratio:85.6/54;width:100%;border:2px dashed var(--line);border-radius:12px;background:var(--panel-2);overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.capture.has-img{border-style:solid;cursor:grab}
-.capture.has-img:active{cursor:grabbing}
+/* "Ya hay foto" lo dice el canvas visible; no hace falta que el script ponga una clase. */
+.capture:has(canvas:not([hidden])){border-style:solid;cursor:grab}
+.capture:has(canvas:not([hidden])):active{cursor:grabbing}
 .capture canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;user-select:none;-webkit-user-select:none}
 .capture-hint{display:none;position:absolute;top:8px;left:8px;z-index:1;font-size:11px;font-weight:600;padding:4px 9px;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;pointer-events:none;backdrop-filter:blur(6px)}
-.capture.has-img .capture-hint{display:block}
+.capture:has(canvas:not([hidden])) .capture-hint{display:block}
 .capture-actions{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px}
-.capture.has-img .capture-actions{align-self:end;flex-direction:row;margin-bottom:10px}
+.capture:has(canvas:not([hidden])) .capture-actions{align-self:end;flex-direction:row;margin-bottom:10px}
 .capture-cta{font:inherit;font-weight:600;color:var(--accent);background:var(--panel);padding:10px 14px;border-radius:999px;border:1px solid var(--line);font-size:15px;cursor:pointer}
 .capture-alt{font-size:13px;color:var(--ink-2);text-decoration:underline;text-underline-offset:2px;cursor:pointer;padding:4px 8px}
-.capture.has-img .capture-cta{font-size:13px;padding:7px 12px;opacity:.95}
-.capture.has-img .capture-alt{background:var(--panel);border-radius:999px;border:1px solid var(--line);text-decoration:none;padding:7px 12px;font-size:13px;opacity:.95}
+.capture:has(canvas:not([hidden])) .capture-cta{font-size:13px;padding:7px 12px;opacity:.95}
+.capture:has(canvas:not([hidden])) .capture-alt{background:var(--panel);border-radius:999px;border:1px solid var(--line);text-decoration:none;padding:7px 12px;font-size:13px;opacity:.95}
 
 /* ---- cámara en vivo ---- */
 .cam{position:fixed;inset:0;z-index:50;background:#000;display:grid;grid-template-rows:1fr auto;touch-action:none}
