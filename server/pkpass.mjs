@@ -10,8 +10,8 @@
  */
 
 // Lo que también necesita el navegador (zip, manifest, hashes) vive en public/pkpass-build.js.
-export { utf8, concat, fromBase64, zipStore, buildManifest, sha256hex, dataUrlToPng, passSerial, PASS_FILES } from '../public/pkpass-build.js';
-import { utf8, concat, fromBase64, zipStore, buildManifest, passSerial, dataUrlToPng, PASS_FILES } from '../public/pkpass-build.js';
+export { utf8, concat, fromBase64, zipStore, buildManifest, sha256hex, dataUrlToPng, passSerial } from '../public/pkpass-build.js';
+import { utf8, concat, fromBase64, zipStore, buildManifest, passSerial, dataUrlToPng, sha1hex } from '../public/pkpass-build.js';
 
 const sha1 = async (u8) => new Uint8Array(await crypto.subtle.digest('SHA-1', u8));
 
@@ -114,19 +114,42 @@ export async function signManifest(manifestBytes, { wwdrPem, signerCertPem, sign
 }
 
 /**
- * Firma un manifest que armó el teléfono. Es el camino que evita subir la foto: acá solo entran hashes.
- * Se valida que sea realmente un manifest nuestro antes de firmar nada.
+ * Firma el pase que armó el teléfono, SIN recibir la foto.
+ *
+ * Clave de seguridad: el servidor **no firma un manifest ajeno**. Firmar hashes arbitrarios convierte al
+ * endpoint en un oráculo de firma: cualquiera podría armar su propio pass.json (otro estilo, otro
+ * organizationName, su propio webServiceURL) y hacérselo firmar con nuestro certificado de Apple.
+ * Comprobado el 2026-09-12 contra producción antes de arreglarlo: devolvía 200 y Wallet aceptaba el pase.
+ *
+ * Entonces: el cliente manda los campos y los hashes de las tres imágenes del strip; el servidor arma él
+ * mismo pass.json, calcula los hashes de sus propios iconos y del pass.json, y firma ese manifest.
+ * Lo único que puede elegir quien llama es el texto de los campos y la imagen del documento, igual que en
+ * /api/pass. La foto sigue sin salir del teléfono: de ella solo viaja un sha1.
  */
-export async function signClientManifest(manifestText, certs) {
+const STRIP_FILES = ['strip.png', 'strip@2x.png', 'strip@3x.png'];
+const isSha1 = (h) => typeof h === 'string' && /^[0-9a-f]{40}$/.test(h);
+
+export async function signClientPass({ cfg, certs, assets, fields, strips }) {
   if (!certs) throw Object.assign(new Error('Faltan certificados'), { status: 503 });
-  if (typeof manifestText !== 'string' || manifestText.length > 4096) throw Object.assign(new Error('Manifest inválido'), { status: 400 });
-  let manifest;
-  try { manifest = JSON.parse(manifestText); } catch { throw Object.assign(new Error('Manifest no es JSON'), { status: 400 }); }
-  const names = Object.keys(manifest);
-  if (!names.length || !names.every((n) => PASS_FILES.includes(n))) throw Object.assign(new Error('Manifest con archivos desconocidos'), { status: 400 });
-  if (!names.includes('pass.json')) throw Object.assign(new Error('Falta pass.json en el manifest'), { status: 400 });
-  if (!Object.values(manifest).every((h) => typeof h === 'string' && /^[0-9a-f]{40}$/.test(h))) throw Object.assign(new Error('Hashes inválidos'), { status: 400 });
-  return signManifest(utf8(manifestText), certs);
+  if (!fields || typeof fields !== 'object') throw Object.assign(new Error('Faltan los campos'), { status: 400 });
+  if (!clean(fields.apellido) || !clean(fields.nombres) || !clean(fields.dni)) throw Object.assign(new Error('apellido, nombres y dni son obligatorios'), { status: 400 });
+  if (!strips || typeof strips !== 'object') throw Object.assign(new Error('Faltan los hashes del strip'), { status: 400 });
+  const names = Object.keys(strips);
+  if (names.length !== STRIP_FILES.length || !names.every((n) => STRIP_FILES.includes(n)) || !Object.values(strips).every(isSha1)) {
+    throw Object.assign(new Error('Los hashes del strip son inválidos'), { status: 400 });
+  }
+
+  const serial = await passSerial(clean(fields.dni), clean(fields.ejemplar), cfg.passTypeId);
+  const passJson = utf8(JSON.stringify(buildPassJson(cfg, fields, serial)));
+
+  const manifest = {};
+  for (const [name, bytes] of Object.entries(assets)) manifest[name] = await sha1hex(bytes);
+  for (const name of STRIP_FILES) manifest[name] = strips[name];
+  manifest['pass.json'] = await sha1hex(passJson);
+
+  const manifestBytes = utf8(JSON.stringify(manifest));
+  const signature = await signManifest(manifestBytes, certs);
+  return { passJson, manifestBytes, signature, serial };
 }
 
 // ---------- Contenido del pase ----------
