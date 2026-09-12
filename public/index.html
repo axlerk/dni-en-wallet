@@ -33,13 +33,17 @@
     <!-- STEP 1: FRENTE -->
     <section class="step" id="step-front">
       <div class="step-h"><span class="n">1</span><h2>Frente del DNI</h2></div>
-      <p class="hint">Apoyá el DNI sobre fondo liso y sacá la foto. Después ajustá el encuadre: arrastrá para mover, pellizcá para acercar.</p>
+      <p class="hint">Apoyá el DNI sobre fondo liso y encuadralo dentro del marco de la cámara. Después podés ajustar: arrastrá para mover, pellizcá para acercar.</p>
       <div class="capture" id="frontCapture">
         <canvas id="frontCanvas" hidden aria-label="Encuadre del frente: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
-        <label class="capture-cta" id="frontCta" for="frontFile">📷 Sacar foto del frente</label>
+        <div class="capture-actions">
+          <button type="button" class="capture-cta" id="frontCta">📷 Sacar foto del frente</button>
+          <label class="capture-alt" for="frontFile">Elegir de la galería</label>
+        </div>
       </div>
-      <input type="file" id="frontFile" accept="image/*" capture="environment" hidden>
+      <input type="file" id="frontFile" accept="image/*" hidden>
+      <div class="status" id="frontStatus" hidden></div>
     </section>
 
     <!-- STEP 2: DORSO -->
@@ -49,10 +53,13 @@
       <div class="capture" id="backCapture">
         <canvas id="backCanvas" hidden aria-label="Encuadre del dorso: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
-        <label class="capture-cta" id="backCta" for="backFile">📷 Sacar foto del dorso</label>
+        <div class="capture-actions">
+          <button type="button" class="capture-cta" id="backCta">📷 Sacar foto del dorso</button>
+          <label class="capture-alt" for="backFile">Elegir de la galería</label>
+        </div>
       </div>
-      <input type="file" id="backFile" accept="image/*" capture="environment" hidden>
-      <div class="status" id="scanStatus" hidden></div>
+      <input type="file" id="backFile" accept="image/*" hidden>
+      <div class="status" id="backStatus" hidden></div>
     </section>
 
     <!-- STEP 3: DATOS -->
@@ -115,6 +122,17 @@
   </main>
 
   <footer class="foot">Tus fotos y datos se procesan en tu teléfono. Solo el pase ya armado viaja al servidor para firmarse.</footer>
+
+  <!-- Cámara en vivo con marco guía: el recorte del marco es exactamente lo que va al pase -->
+  <div class="cam" id="cam" hidden role="dialog" aria-modal="true" aria-label="Cámara">
+    <video id="camVideo" autoplay playsinline muted></video>
+    <div class="cam-guide" id="camGuide"><span class="cam-tip" id="camTip">Encuadrá el DNI dentro del marco</span></div>
+    <div class="cam-bar">
+      <button type="button" class="cam-btn" id="camCancel">Cancelar</button>
+      <button type="button" class="cam-shutter" id="camShot" aria-label="Sacar foto"></button>
+      <button type="button" class="cam-btn" id="camPick">Galería</button>
+    </div>
+  </div>
 
   <!-- PDF417 decoder (ZXing, UMD). Library, not framework — el resto es JS puro. -->
   <script src="vendor/zxing-library.min.js"></script>
