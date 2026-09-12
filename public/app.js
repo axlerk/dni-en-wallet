@@ -21,6 +21,7 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     building: false,    // armando el pase para Wallet
     cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
     cuilAuto: false,
+    nacTouched: false,  // ídem para la nacionalidad sugerida
     scanned: false,   // ya se leyó el PDF417 en alguna de las dos caras
     fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', nacionalidad: '', cuil: '', raw: '' },
   };
@@ -415,11 +416,33 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
     return d === null ? '' : `${pre}-${n}-${d}`;
   }
 
+  /**
+   * Nacionalidad sin OCR. El código nuevo no la trae (el viejo sí, y en ese caso no tocamos nada).
+   * La numeración manda: la serie de 9x millones es la de extranjeros y naturalizados
+   * (Wikipedia, "Argentine Foreigner's Identity card": «Number started with 9, instead of 8 and before as
+   * nationals»; la prensa local ubica ahí los 92 millones), y los recién nacidos argentinos van por 70 millones.
+   * Con un número por debajo de 90 millones sugerimos ARGENTINA; por encima no adivinamos el país y lo dejamos vacío.
+   */
+  const nacionalidadSugerida = (dni) => {
+    const n = Number(onlyDigits(dni));
+    return n && n < 90000000 ? 'ARGENTINA' : '';
+  };
+
+  function maybeFillNacionalidad() {
+    const el = $('f_nacionalidad');
+    if (state.nacTouched || el.value.trim()) return;
+    const v = nacionalidadSugerida(state.fields.dni);
+    if (!v) { setFieldMsg(el, ''); return; } // sin sugerencia no dejamos la nota colgada
+    el.value = v;
+    state.fields.nacionalidad = v;
+    setFieldMsg(el, 'Sugerida por el número de DNI', 'note');
+  }
+
   function maybeFillCuil() {
     const el = $('f_cuil');
     if (state.cuilTouched || el.value.trim()) return;
     const c = cuilFromDniSexo(state.fields.dni, state.fields.sexo);
-    if (!c) return;
+    if (!c) { setFieldMsg(el, ''); return; }
     el.value = c;
     state.fields.cuil = c;
     state.cuilAuto = true;
@@ -443,6 +466,7 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
   function readForm() {
     for (const k of fieldIds) state.fields[k] = $('f_' + k).value.trim();
     maybeFillCuil();
+    maybeFillNacionalidad();
     renderPreviewFields();
     updateCta();
   }
@@ -678,6 +702,7 @@ import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
   window.addEventListener('resize', () => { for (const w of ['front', 'back']) if (state[w]) scheduleRender(w); });
   for (const id of dateIds) wireDateField($('f_' + id));
   $('f_cuil').addEventListener('input', () => { state.cuilTouched = true; state.cuilAuto = false; setFieldMsg($('f_cuil'), ''); });
+  $('f_nacionalidad').addEventListener('input', () => { state.nacTouched = true; setFieldMsg($('f_nacionalidad'), ''); });
   $('dataForm').addEventListener('input', readForm);
   $('f_raw').addEventListener('change', () => { const p = parseDni($('f_raw').value); if (p) { state.scanned = true; fillForm(p); } });
   $('addBtn').addEventListener('click', submitPass);
