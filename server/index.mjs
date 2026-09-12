@@ -1,13 +1,13 @@
-/* Servidor mínimo: sirve la PWA y firma pases .pkpass.
- * No usa framework (http nativo). Única dependencia: passkit-generator (firma PKCS#7 con el certificado del Pass Type ID).
+/* Servidor local mínimo: sirve la PWA y firma pases .pkpass (node:http, sin framework, sin dependencias).
+ * La misma lógica de armado/firma (server/pkpass.mjs) corre en Cloudflare Workers (worker/index.mjs).
  * Nada se persiste: la request entra, se firma, se responde, se olvida.
  */
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { PKPass } from 'passkit-generator';
+import { createPkpass, parsePassForm, fromBase64 } from './pkpass.mjs';
+import { PASS_ASSETS_B64 } from './pass-assets.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -19,107 +19,30 @@ const cfg = {
   teamId: process.env.TEAM_ID || 'ABCDE12345',
   orgName: process.env.ORG_NAME || 'DNI en Wallet',
   certDir: path.resolve(ROOT, process.env.CERT_DIR || 'certs'),
-  keyPass: process.env.SIGNER_KEY_PASSPHRASE || undefined,
   maxBody: 20 * 1024 * 1024,
 };
 
 // ---------- Certificados (se leen una vez; si faltan, el servidor arranca igual y /api/pass devuelve 503) ----------
 // Dos fuentes: archivos PEM en CERT_DIR (local) o variables WWDR_PEM_B64 / SIGNER_CERT_PEM_B64 / SIGNER_KEY_PEM_B64
-// con el PEM en base64 (PaaS sin disco persistente: Render, Fly, Railway...). Las variables tienen prioridad.
+// con el PEM en base64 (mismas que usa el Worker). Las variables tienen prioridad. La clave va sin passphrase.
 let certs = null;
 try {
-  const fromEnv = (name) => (process.env[name] ? Buffer.from(process.env[name], 'base64') : null);
-  const fromFile = (f) => fs.readFileSync(path.join(cfg.certDir, f));
+  const fromEnv = (name) => (process.env[name] ? Buffer.from(process.env[name], 'base64').toString('utf8') : null);
+  const fromFile = (f) => fs.readFileSync(path.join(cfg.certDir, f), 'utf8');
   certs = {
-    wwdr: fromEnv('WWDR_PEM_B64') || fromFile('wwdr.pem'),
-    signerCert: fromEnv('SIGNER_CERT_PEM_B64') || fromFile('signerCert.pem'),
-    signerKey: fromEnv('SIGNER_KEY_PEM_B64') || fromFile('signerKey.pem'),
-    signerKeyPassphrase: cfg.keyPass,
+    wwdrPem: fromEnv('WWDR_PEM_B64') || fromFile('wwdr.pem'),
+    signerCertPem: fromEnv('SIGNER_CERT_PEM_B64') || fromFile('signerCert.pem'),
+    signerKeyPem: fromEnv('SIGNER_KEY_PEM_B64') || fromFile('signerKey.pem'),
   };
 } catch (e) {
   console.warn(`[certs] No se encontraron certificados en ${cfg.certDir} ni en variables *_PEM_B64 (${e.message}). La PWA funciona, la firma no.`);
 }
 
-// Assets fijos del pase (icono obligatorio, logo opcional)
-const ASSETS = Object.fromEntries(
-  ['icon.png', 'icon@2x.png', 'icon@3x.png', 'logo.png', 'logo@2x.png', 'logo@3x.png']
-    .map((f) => [f, fs.readFileSync(path.join(__dirname, 'assets', f))]),
-);
-
-// ---------- Construcción del pase ----------
-const clean = (s, max = 80) => String(s ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, max);
-const fmtDni = (d) => { const n = clean(d, 12).replace(/\D/g, ''); return n.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); };
-
-function buildPassJson(f, serial) {
-  const apellido = clean(f.apellido), nombres = clean(f.nombres);
-  const dni = fmtDni(f.dni);
-  const raw = clean(f.raw, 400);
-  const barcodeMessage = raw || `${clean(f.tramite)}@${apellido}@${nombres}@${clean(f.sexo, 1)}@${clean(f.dni, 12)}@${clean(f.ejemplar, 1)}@${clean(f.nacimiento, 10)}@${clean(f.emision, 10)}`;
-
-  return {
-    formatVersion: 1,
-    passTypeIdentifier: cfg.passTypeId,
-    teamIdentifier: cfg.teamId,
-    serialNumber: serial,
-    organizationName: cfg.orgName,
-    description: `Copia de referencia del DNI ${dni}`,
-    logoText: 'DNI · Copia',
-    foregroundColor: 'rgb(234,241,248)',
-    backgroundColor: 'rgb(22,61,102)',
-    labelColor: 'rgb(170,190,210)',
-    sharingProhibited: true,
-    barcodes: [
-      { format: raw ? 'PKBarcodeFormatPDF417' : 'PKBarcodeFormatQR', message: barcodeMessage, messageEncoding: 'iso-8859-1', altText: dni },
-    ],
-    // storeCard: el strip (frente|dorso) va debajo del encabezado. primaryFields se omite a propósito:
-    // en storeCard se dibuja SOBRE el strip y taparía la foto.
-    storeCard: {
-      headerFields: [{ key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' }],
-      secondaryFields: [
-        { key: 'apellido', label: 'APELLIDO', value: apellido },
-        { key: 'nombres', label: 'NOMBRES', value: nombres, textAlignment: 'PKTextAlignmentRight' },
-      ],
-      auxiliaryFields: [
-        { key: 'dni', label: 'DNI', value: dni },
-        { key: 'nac', label: 'NACIMIENTO', value: clean(f.nacimiento, 10) || '—' },
-        { key: 'sexo', label: 'SEXO', value: clean(f.sexo, 1) || '—' },
-        { key: 'ref', label: 'REFERENCIA', value: 'Sin validez oficial', textAlignment: 'PKTextAlignmentRight' },
-      ],
-      backFields: [
-        { key: 'aviso', label: 'AVISO', value: 'Copia personal de referencia. No reemplaza al DNI físico ni al DNI Digital de Mi Argentina y no tiene validez legal.' },
-        { key: 'tramite', label: 'Nº DE TRÁMITE', value: clean(f.tramite, 20) || '—' },
-        { key: 'emision', label: 'FECHA DE EMISIÓN', value: clean(f.emision, 10) || '—' },
-        { key: 'codigo', label: 'CÓDIGO PDF417', value: raw || '—' },
-        { key: 'gen', label: 'GENERADO', value: new Date().toISOString().slice(0, 10) },
-      ],
-    },
-  };
-}
-
-function dataUrlToPng(s) {
-  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(s || ''));
-  if (!m) throw new Error('strip inválido (se espera data:image/png;base64)');
-  return Buffer.from(m[1], 'base64');
-}
+// Assets fijos del pase (icono obligatorio, logo opcional), embebidos para no depender de fs
+const ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
 
 export function createPass(fields, strips) {
-  if (!certs) { const e = new Error('Faltan certificados'); e.status = 503; throw e; }
-  if (!clean(fields.apellido) || !clean(fields.nombres) || !clean(fields.dni)) { const e = new Error('apellido, nombres y dni son obligatorios'); e.status = 400; throw e; }
-
-  // Serial estable por documento: regenerar reemplaza el pase en Wallet en vez de duplicarlo. No se guarda en ningún lado.
-  const serial = 'dni-' + crypto.createHash('sha256').update(`${clean(fields.dni)}|${clean(fields.ejemplar)}|${cfg.passTypeId}`).digest('hex').slice(0, 24);
-
-  const pass = new PKPass(
-    {
-      ...ASSETS,
-      'strip.png': dataUrlToPng(strips.strip1x),
-      'strip@2x.png': dataUrlToPng(strips.strip2x),
-      'strip@3x.png': dataUrlToPng(strips.strip3x),
-      'pass.json': Buffer.from(JSON.stringify(buildPassJson(fields, serial))),
-    },
-    certs,
-  );
-  return { buffer: pass.getAsBuffer(), serial };
+  return createPkpass({ cfg, certs, assets: ASSETS, fields, strips });
 }
 
 // ---------- HTTP ----------
@@ -135,24 +58,19 @@ function readBody(req, limit) {
   });
 }
 
-function parseForm(buf) {
-  const p = new URLSearchParams(buf.toString('utf8'));
-  return { fields: JSON.parse(p.get('fields') || '{}'), strips: { strip1x: p.get('strip1x'), strip2x: p.get('strip2x'), strip3x: p.get('strip3x') } };
-}
-
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
     if (req.method === 'POST' && url.pathname === '/api/pass') {
-      const { fields, strips } = parseForm(await readBody(req, cfg.maxBody));
-      const { buffer, serial } = createPass(fields, strips);
+      const { fields, strips } = parsePassForm((await readBody(req, cfg.maxBody)).toString('utf8'));
+      const { bytes, serial } = await createPass(fields, strips);
       res.writeHead(200, {
         'Content-Type': 'application/vnd.apple.pkpass',
         'Content-Disposition': `attachment; filename="${serial}.pkpass"`,
-        'Content-Length': buffer.length,
+        'Content-Length': bytes.length,
         'Cache-Control': 'no-store',
       });
-      return res.end(buffer);
+      return res.end(Buffer.from(bytes));
     }
     if (req.method === 'GET' && url.pathname === '/api/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
