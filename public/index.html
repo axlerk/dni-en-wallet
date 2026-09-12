@@ -33,22 +33,24 @@
     <!-- STEP 1: FRENTE -->
     <section class="step" id="step-front">
       <div class="step-h"><span class="n">1</span><h2>Frente del DNI</h2></div>
-      <p class="hint">Apoyá el DNI sobre fondo liso y llená el encuadre. Se recorta al centro automáticamente.</p>
-      <label class="capture" for="frontFile">
-        <img id="frontPreview" alt="" hidden>
-        <span class="capture-cta" id="frontCta">📷 Sacar foto del frente</span>
-      </label>
+      <p class="hint">Apoyá el DNI sobre fondo liso y sacá la foto. Después ajustá el encuadre: arrastrá para mover, pellizcá para acercar.</p>
+      <div class="capture" id="frontCapture">
+        <canvas id="frontCanvas" hidden aria-label="Encuadre del frente: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
+        <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
+        <label class="capture-cta" id="frontCta" for="frontFile">📷 Sacar foto del frente</label>
+      </div>
       <input type="file" id="frontFile" accept="image/*" capture="environment" hidden>
     </section>
 
     <!-- STEP 2: DORSO -->
     <section class="step" id="step-back">
       <div class="step-h"><span class="n">2</span><h2>Dorso del DNI</h2></div>
-      <p class="hint">Del dorso se lee el código PDF417 y se completan los datos solos.</p>
-      <label class="capture" for="backFile">
-        <img id="backPreview" alt="" hidden>
-        <span class="capture-cta" id="backCta">📷 Sacar foto del dorso</span>
-      </label>
+      <p class="hint">Del dorso se lee el código PDF417 y se completan los datos solos. El encuadre se ajusta igual que el frente.</p>
+      <div class="capture" id="backCapture">
+        <canvas id="backCanvas" hidden aria-label="Encuadre del dorso: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
+        <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
+        <label class="capture-cta" id="backCta" for="backFile">📷 Sacar foto del dorso</label>
+      </div>
       <input type="file" id="backFile" accept="image/*" capture="environment" hidden>
       <div class="status" id="scanStatus" hidden></div>
     </section>
