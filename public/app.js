@@ -1,5 +1,5 @@
 /* DNI en Wallet — frontend en JS puro.
- * Flujo: foto frente → foto dorso (decodifica PDF417) → encuadre (arrastrar / pellizcar) → revisar datos → strip (frente|dorso) → POST → .pkpass
+ * Flujo: foto frente → foto dorso (el PDF417 se busca en las dos caras) → encuadre (arrastrar / pellizcar) → revisar datos → strip (frente|dorso) → POST → .pkpass
  * Todo el procesamiento de imagen ocurre en el teléfono. Al servidor solo viaja el pase ya armado para firmarse.
  */
 (() => {
@@ -14,7 +14,8 @@
   const state = {
     front: null,
     back: null,
-    fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', raw: '' },
+    scanned: false, // ya se leyó el PDF417 en alguna de las dos caras
+    fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', raw: '' },
   };
 
   // Strip de storeCard: 375×123 pt en 1x/2x/3x. Cada lado ocupa una mitad menos el separador → 186×123.
@@ -186,18 +187,34 @@
 
   // ---------- PDF417 ----------
   /**
-   * Formatos conocidos del código del dorso:
-   *  - Nuevo (2012+):  tramite@apellido@nombres@sexo@dni@ejemplar@nacimiento@emision[@cuil@...]
-   *  - Viejo (2009-12): @dni@ejemplar@?@apellido@nombres@nacionalidad@nacimiento@sexo@emision@...
+   * Dos formatos en circulación, con campos separados por "@". Se distinguen por la cantidad de campos,
+   * no por la cara del documento: según la generación el código está en el frente o en el dorso, así que
+   * la app escanea las dos fotos (ver scanSide).
+   *
+   *  - Nuevo (DNI tarjeta 2012+), 9 campos:
+   *      tramite@apellido@nombres@sexo@dni@ejemplar@nacimiento@emision@cuil
+   *    No trae fecha de vencimiento.
+   *  - Viejo (DNI tarjeta 2009-2012), 16-17 campos, arranca con "@":
+   *      @dni@ejemplar@?@apellido@nombres@nacionalidad@nacimiento@sexo@emision@?@?@vencimiento@...
    */
+  const isDate = (s) => /^\d{2}\/\d{2}\/\d{4}$/.test(String(s || '').trim());
+  const onlyLetter = (s) => (/^[A-Za-z]$/.test(String(s || '').trim()) ? String(s).trim().toUpperCase() : '');
+  const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
+
   function parseDni(raw) {
     const t = String(raw || '').trim();
     if (!t.includes('@')) return null;
     const p = t.split('@').map((s) => s.trim());
-    if (t.startsWith('@')) {
-      return { dni: p[1], ejemplar: p[2], apellido: p[4], nombres: p[5], nacimiento: p[7], sexo: p[8], emision: p[9], tramite: '', raw: t };
-    }
-    return { tramite: p[0], apellido: p[1], nombres: p[2], sexo: p[3], dni: p[4], ejemplar: p[5], nacimiento: p[6], emision: p[7], raw: t };
+    // El formato viejo tiene muchos más campos; el nuevo son 9 (a veces 8 sin CUIL).
+    const f = p.length >= 14
+      ? { dni: onlyDigits(p[1]), ejemplar: onlyLetter(p[2]), apellido: p[4], nombres: p[5], nacimiento: p[7], sexo: onlyLetter(p[8]), emision: p[9], vencimiento: isDate(p[12]) ? p[12] : '', tramite: '' }
+      : p.length >= 8
+        ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: onlyLetter(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '' }
+        : null;
+    if (!f || !f.dni || !f.apellido || !f.nombres) return null;
+    if (!isDate(f.nacimiento)) f.nacimiento = '';
+    if (!isDate(f.emision)) f.emision = '';
+    return { ...f, raw: t };
   }
 
   async function decodeWithNative(canvas) {
@@ -243,7 +260,7 @@
   }
 
   // ---------- UI ----------
-  const fieldIds = ['apellido', 'nombres', 'dni', 'sexo', 'nacimiento', 'ejemplar', 'tramite', 'emision', 'raw'];
+  const fieldIds = ['apellido', 'nombres', 'dni', 'sexo', 'nacimiento', 'ejemplar', 'tramite', 'emision', 'vencimiento', 'raw'];
 
   function setStatus(el, text, kind) {
     el.hidden = !text;
@@ -346,18 +363,30 @@
     renderFrame(which);
     renderPreviewStrip();
     updateCta();
+    await scanSide(which, img);
+  }
 
-    if (which === 'back') {
-      const st = $('backStatus');
-      setStatus(st, 'Leyendo el código PDF417…', 'busy');
-      const text = await decodePdf417(img);
-      const parsed = text && parseDni(text);
-      if (parsed) {
-        fillForm(parsed);
-        setStatus(st, 'Código leído. Revisá los datos abajo.', 'ok');
-      } else {
-        setStatus(st, 'No se pudo leer el código. Probá con más luz y el dorso bien plano, o completá los datos a mano.', 'warn');
-      }
+  /**
+   * Busca el PDF417 en la foto recién tomada, sea cual sea la cara: en los DNI 2012+ el código suele estar
+   * en el frente y en los 2009-2012 en el dorso, así que probamos las dos y nos quedamos con la primera lectura.
+   * Se decodifica la foto completa, no el recorte del marco.
+   */
+  async function scanSide(which, img) {
+    const st = $(which + 'Status');
+    if (state.scanned) { setStatus(st, '', ''); return; }
+    setStatus(st, 'Buscando el código PDF417…', 'busy');
+    const text = await decodePdf417(img);
+    const parsed = text && parseDni(text);
+    if (parsed) {
+      state.scanned = true;
+      fillForm(parsed);
+      setStatus(st, 'Código leído. Revisá los datos abajo.', 'ok');
+      const other = which === 'front' ? 'back' : 'front';
+      setStatus($(other + 'Status'), '', '');
+    } else if (state.front && state.back) {
+      setStatus(st, 'No se pudo leer el código en ninguna de las dos caras. Probá con más luz, el DNI bien plano, o completá los datos a mano.', 'warn');
+    } else {
+      setStatus(st, 'No se encontró el código en esta cara. Puede estar en la otra: seguí con la siguiente foto.', '');
     }
   }
 
@@ -395,7 +424,7 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('cam').hidden) closeCamera(); });
   window.addEventListener('resize', () => { for (const w of ['front', 'back']) if (state[w]) scheduleRender(w); });
   $('dataForm').addEventListener('input', readForm);
-  $('f_raw').addEventListener('change', () => { const p = parseDni($('f_raw').value); if (p) fillForm(p); });
+  $('f_raw').addEventListener('change', () => { const p = parseDni($('f_raw').value); if (p) { state.scanned = true; fillForm(p); } });
   $('addBtn').addEventListener('click', submitPass);
 
   renderPreviewStrip();
