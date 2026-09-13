@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 34" fill="#000">
+  <!-- DNI: tarjeta con la foto y dos renglones. Fuente única del icono: la usa la página como máscara CSS y de acá salen los PNG. -->
+  <rect x="1.7" y="1.7" width="44.6" height="30.6" rx="5" fill="none" stroke="#000" stroke-width="3.4"/>
+  <circle cx="15.6" cy="17" r="5.7"/>
+  <rect x="25.2" y="12.2" width="13.4" height="3.4" rx="1.7"/>
+  <rect x="25.2" y="18.4" width="13.4" height="3.4" rx="1.7"/>
+</svg>
