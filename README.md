@@ -39,6 +39,7 @@ public/                 la PWA entera, y lo que también usa el servidor:
   pass-json.js          arma pass.json — una sola fuente para el pase y la vista previa
   pkpass-build.js       zip, manifest y hashes — corre igual en el navegador y en Node
   pass-assets.js        iconos del pase en base64 (generado por `npm run assets`)
+  icons/                mark.svg es el icono del DNI: la página lo pinta como máscara CSS y de ahí salen los PNG
   vendor/               ZXing, copiado por `npm run vendor` (no entra en git)
 server/pkpass.mjs       firma PKCS#7 sobre WebCrypto, sin dependencias
 server/index.mjs        servidor local: estáticos + /api/sign + /api/pass + /api/health

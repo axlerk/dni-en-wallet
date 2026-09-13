@@ -1,8 +1,9 @@
 /* Service worker mínimo: cachea el shell para que la app abra sin red.
  * Estrategia network-first: con red siempre se sirve la versión nueva (y se actualiza el cache); sin red, el cache.
  * NUNCA cachea /api/ — el pase se firma siempre en vivo. */
-const CACHE = 'dni-wallet-v4';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'pass-json.js', 'pkpass-build.js', 'pass-assets.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'vendor/zxing-library.min.js'];
+const CACHE = 'dni-wallet-v5';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'pass-json.js', 'pkpass-build.js', 'pass-assets.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
+  'icons/mark.svg', 'icons/camera.svg', 'icons/retake.svg', 'vendor/zxing-library.min.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

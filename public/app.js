@@ -671,7 +671,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     if (state[which]) URL.revokeObjectURL(state[which].img.src);
     state[which] = { img, zoom: 1, cx: 0.5, cy: 0.5 };
     $(which + 'Canvas').hidden = false; // el CSS se entera solo: .capture:has(canvas:not([hidden]))
-    $(which + 'Cta').textContent = '↻ Volver a sacar';
+    $(which + 'Cta').textContent = 'Volver a sacar'; // el icono lo cambia el CSS al ver el canvas
     renderFrame(which);
     renderPreviewStrip();
     updateCta();

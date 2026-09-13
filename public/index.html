@@ -11,7 +11,8 @@
   <!-- PWA / iOS home screen -->
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="icon" href="icons/mark.svg" type="image/svg+xml">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="DNI Wallet">
@@ -42,7 +43,7 @@
         <canvas id="frontCanvas" hidden aria-label="Encuadre del frente: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
         <div class="capture-actions">
-          <button type="button" class="capture-cta" id="frontCta">📷 Sacar foto del frente</button>
+          <button type="button" class="capture-cta" id="frontCta">Sacar foto del frente</button>
           <label class="capture-alt" for="frontFile">Elegir de la galería</label>
         </div>
       </div>
@@ -62,7 +63,7 @@
         <canvas id="backCanvas" hidden aria-label="Encuadre del dorso: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
         <div class="capture-actions">
-          <button type="button" class="capture-cta" id="backCta">📷 Sacar foto del dorso</button>
+          <button type="button" class="capture-cta" id="backCta">Sacar foto del dorso</button>
           <label class="capture-alt" for="backFile">Elegir de la galería</label>
         </div>
       </div>
