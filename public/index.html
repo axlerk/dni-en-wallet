@@ -54,11 +54,10 @@
     <!-- STEP 2: DORSO -->
     <section class="step" id="step-back">
       <div class="step-h"><span class="n">2</span><h2>Dorso del DNI</h2>
-        <label class="toggle"><input type="checkbox" id="frontOnly" checked><span>Solo el frente</span></label>
+        <span class="opt" id="backOpt">opcional</span>
       </div>
-      <p class="hint" id="backHintBoth">Se muestra junto al frente en el pase, y de acá se lee el código si no estaba adelante.</p>
-      <p class="hint" id="backHintOnly">El pase muestra solo el frente, así que el dorso no hace falta. Destildá la opción para armar el pase con las dos caras.</p>
-      <p class="hint" id="backHintNeed">El código no estaba en el frente: sacá el dorso para leerlo. Esta foto no se va a mostrar en el pase.</p>
+      <p class="hint" id="backHintOpt">Sirve para dos cosas: leer el código si no estaba en el frente, y mostrar las dos caras en el pase.</p>
+      <p class="hint" id="backHintNeed">El código no estaba en el frente: sacá el dorso para leerlo. Después elegís si se muestra en el pase.</p>
       <div class="capture" id="backCapture">
         <canvas id="backCanvas" hidden aria-label="Encuadre del dorso: arrastrá para mover, pellizcá para acercar, doble toque para reiniciar"></canvas>
         <span class="capture-hint" aria-hidden="true">↔ Arrastrá · pellizcá para acercar</span>
@@ -98,7 +97,11 @@
 
     <!-- STEP 4: PREVIEW + WALLET -->
     <section class="step" id="step-pass">
-      <div class="step-h"><span class="n">4</span><h2>Vista previa</h2></div>
+      <div class="step-h"><span class="n">4</span><h2>Vista previa</h2>
+        <!-- Qué entra en la imagen del pase es una decisión de la vista previa, no de la cámara:
+             por eso el control vive acá y aparece solo cuando hay foto del dorso para mostrar. -->
+        <label class="toggle"><input type="checkbox" id="frontOnly" checked><span>Solo el frente</span></label>
+      </div>
 
       <div class="pass" id="pass" aria-live="polite">
         <div class="p-head">

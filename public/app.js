@@ -19,7 +19,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   const state = {
     front: null,
     back: null,
-    frontOnly: true,    // armar el pase solo con el frente (por defecto; el dorso sigue sirviendo para leer el código)
+    frontOnly: true,    // la imagen del pase lleva solo el frente (por defecto; el checkbox aparece recién cuando hay dorso)
     scanning: false,    // buscando el PDF417
     building: false,    // armando el pase para Wallet
     cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
@@ -593,22 +593,17 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   }
 
   /**
-   * Con "solo el frente" los controles del dorso se esconden: no hace falta la foto.
-   * Vuelven a aparecer si el código no apareció en el frente, porque en los DNI viejos está atrás.
-   */
-  /**
-   * Lo único que el CSS no puede saber: que el frente no traía código y entonces el dorso vuelve a hacer falta.
-   * El resto (qué se ve con "Solo el frente" tildado) lo resuelve el propio checkbox en la hoja de estilos,
-   * así no hay parpadeo al cargar ni estados que se puedan desincronizar.
+   * El paso del dorso siempre está a la vista: es opcional. Lo único que el CSS no puede saber es que
+   * el frente no traía código y entonces conviene sacarlo igual; eso es `.needs-back`, y solo cambia el texto.
+   * Que el checkbox de la vista previa esté tildado lo resuelve la hoja de estilos con el propio checkbox.
    */
   function updateBackStep() {
     $('step-back').classList.toggle('needs-back', Boolean(state.front && !state.scanned));
   }
 
-  /** Modo "solo el frente": el dorso no entra en la imagen del pase. */
+  /** Modo "solo el frente": el dorso no entra en la imagen del pase (pero sí se usa para leer el código). */
   function setFrontOnly(on) {
     state.frontOnly = on;
-    updateBackStep();
     renderPreviewStrip();
     updateCta();
   }

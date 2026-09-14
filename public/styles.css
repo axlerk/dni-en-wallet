@@ -47,16 +47,14 @@ b{font-weight:700}
 .hint{margin:0 0 12px;color:var(--ink-2);font-size:14px}
 .step-h .toggle{margin-left:auto;display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink-2);cursor:pointer;white-space:nowrap}
 .step-h .toggle input{width:17px;height:17px;accent-color:var(--accent);margin:0}
-/* El paso "Dorso" se muestra según el checkbox, sin JS: al cargar ya sale en su estado final.
-   `.needs-back` lo pone el script solo para el caso que el CSS no puede saber: el frente no traía código. */
-#step-back:has(#frontOnly:checked):not(.needs-back) .capture,
-#step-back:has(#frontOnly:checked):not(.needs-back) #backStatus{display:none}
-#step-back:has(#frontOnly:checked):not(.needs-back){padding-bottom:12px}
-#step-back:has(#frontOnly:checked) #backHintBoth{display:none}
-#step-back:not(:has(#frontOnly:checked)) #backHintOnly,
-#step-back.needs-back #backHintOnly{display:none}
-#step-back:not(:has(#frontOnly:checked)) #backHintNeed,
+/* El paso "Dorso" nunca se esconde: es opcional, no condicional. Lo único que cambia es el texto,
+   y `.needs-back` lo pone el script para el caso que el CSS no puede saber: el frente no traía código. */
+.step-h .opt{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line);border-radius:999px;padding:3px 8px}
+#step-back.needs-back #backOpt,
+#step-back.needs-back #backHintOpt,
 #step-back:not(.needs-back) #backHintNeed{display:none}
+/* El checkbox vive en la vista previa y solo tiene sentido cuando hay dorso que mostrar. */
+.wrap:not(:has(#backCanvas:not([hidden]))) #step-pass .toggle{display:none}
 
 /* Marco de captura con la proporción real de la tarjeta (ID-1, 85.6×54): lo que entra al marco entra entero al pase */
 .capture{display:grid;place-items:center;position:relative;aspect-ratio:85.6/54;width:100%;border:2px dashed var(--line);border-radius:12px;background:var(--panel-2);overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent}
