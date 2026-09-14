@@ -26,7 +26,8 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     cuilAuto: false,
     nacTouched: false,  // ídem para la nacionalidad sugerida
     vencTouched: false, // ídem para el vencimiento calculado
-    scanned: false,   // ya se leyó el PDF417 en alguna de las dos caras
+    scanned: false,   // ya se leyó el código en alguna de las dos caras
+    codeFormat: 'pdf417', // simbología del código leído: 'pdf417' (DNI tarjeta) o 'qr' (DNI electrónico 2026)
     fields: { apellido: '', nombres: '', dni: '', sexo: '', nacimiento: '', ejemplar: '', tramite: '', emision: '', vencimiento: '', nacionalidad: '', cuil: '', raw: '' },
   };
 
@@ -302,14 +303,18 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     return { ...f, raw: t };
   }
 
+  /** Las dos simbologías que puede traer un DNI: PDF417 hasta 2026, QR en el DNI electrónico nuevo. */
+  const NATIVE_FORMATS = ['pdf417', 'qr_code'];
+
   async function decodeWithNative(canvas) {
     if (!('BarcodeDetector' in window)) return null;
     try {
-      const formats = await window.BarcodeDetector.getSupportedFormats?.();
-      if (formats && !formats.includes('pdf417')) return null;
-      const det = new window.BarcodeDetector({ formats: ['pdf417'] });
-      const res = await det.detect(canvas);
-      return res?.[0]?.rawValue || null;
+      const supported = await window.BarcodeDetector.getSupportedFormats?.();
+      const formats = supported ? NATIVE_FORMATS.filter((f) => supported.includes(f)) : NATIVE_FORMATS;
+      if (!formats.length) return null;
+      const det = new window.BarcodeDetector({ formats });
+      const hit = (await det.detect(canvas))?.[0];
+      return hit?.rawValue ? { text: hit.rawValue, format: hit.format === 'qr_code' ? 'qr' : 'pdf417' } : null;
     } catch { return null; }
   }
 
@@ -320,16 +325,20 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
    */
   function decodeWithZXing(canvas) {
     const Z = window.ZXing;
-    if (!Z?.HTMLCanvasElementLuminanceSource || !Z?.PDF417Reader) return null;
+    if (!Z?.HTMLCanvasElementLuminanceSource || !Z?.MultiFormatReader) return null;
     try {
       const source = new Z.HTMLCanvasElementLuminanceSource(canvas);
       const bitmap = new Z.BinaryBitmap(new Z.HybridBinarizer(source));
-      return new Z.PDF417Reader().decode(bitmap)?.getText?.() || null;
+      // Un solo barrido para las dos simbologías: la binarización es lo caro y así se hace una sola vez.
+      const hints = new Map([[Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.PDF_417, Z.BarcodeFormat.QR_CODE]]]);
+      const res = new Z.MultiFormatReader().decode(bitmap, hints);
+      const text = res?.getText?.();
+      return text ? { text, format: res.getBarcodeFormat() === Z.BarcodeFormat.QR_CODE ? 'qr' : 'pdf417' } : null;
     } catch { return null; }
   }
 
   /** Reintenta a varias escalas y rotaciones — las fotos de celular rara vez salen perfectas. Usa la foto completa, no el recorte. */
-  async function decodePdf417(img) {
+  async function decodeCodigo(img) {
     const base = Math.max(img.naturalWidth, img.naturalHeight);
     const scales = [1600, 1200, 900, 2200].map((px) => Math.min(1, px / base));
     const rotations = [0, 180, 90, 270];
@@ -345,8 +354,8 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
         ctx.translate(c.width / 2, c.height / 2);
         ctx.rotate((rot * Math.PI) / 180);
         ctx.drawImage(img, -w / 2, -h / 2, w, h);
-        const text = (await decodeWithNative(c)) || (await decodeWithZXing(c));
-        if (text) return text;
+        const hit = (await decodeWithNative(c)) || (await decodeWithZXing(c));
+        if (hit) return hit;
       }
     }
     return null;
@@ -512,6 +521,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
 
   function readForm() {
     for (const k of fieldIds) state.fields[k] = $('f_' + k).value.trim();
+    state.fields.codeFormat = state.codeFormat; // no es un input: lo dice el lector, no el usuario
     maybeFillCuil();
     maybeFillNacionalidad();
     maybeFillVencimiento();
@@ -681,18 +691,26 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   async function scanSide(which, img) {
     const st = $(which + 'Status');
     if (state.scanned) { setStatus(st, '', ''); return; }
-    setStatus(st, 'Buscando el código PDF417…', 'busy');
+    setStatus(st, 'Buscando el código del DNI…', 'busy');
     state.scanning = true;
     updateCta();
-    const text = await decodePdf417(img);
+    const hit = await decodeCodigo(img);
     state.scanning = false;
-    const parsed = text && parseDni(text);
+    const parsed = hit && parseDni(hit.text);
     if (parsed) {
+      state.codeFormat = hit.format;
       state.scanned = true;
       fillForm(parsed);
       setStatus(st, 'Código leído. Revisá los datos abajo.', 'ok');
       const other = which === 'front' ? 'back' : 'front';
       setStatus($(other + 'Status'), '', '');
+    } else if (hit) {
+      // El DNI electrónico 2026 trae un QR en lugar del PDF417 y su contenido todavía no está documentado:
+      // se guarda tal cual para que viaje en el pase y los datos se completan a mano.
+      state.codeFormat = hit.format;
+      $('f_raw').value = hit.text;
+      readForm();
+      setStatus(st, 'Se leyó el código, pero no tiene el formato conocido. Completá los datos a mano; el código queda guardado abajo.', 'warn');
     } else if (state.front && state.back) {
       setStatus(st, 'No se pudo leer el código en ninguna de las dos caras. Probá con más luz, el DNI bien plano, o completá los datos a mano.', 'warn');
     } else {

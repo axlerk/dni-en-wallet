@@ -50,7 +50,9 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
     labelColor: COLORS.label,
     sharingProhibited: true,
     barcodes: [
-      { format: raw ? 'PKBarcodeFormatPDF417' : 'PKBarcodeFormatQR', message: barcodeMessage, messageEncoding: 'iso-8859-1', altText: dni },
+      // La simbología la decide el lector, no el formulario: PDF417 en el DNI tarjeta, QR en el electrónico 2026.
+      // Sin código leído se arma el mensaje con los campos y se emite como QR, que es lo que mejor tolera texto corto.
+      { format: raw && f.codeFormat !== 'qr' ? 'PKBarcodeFormatPDF417' : 'PKBarcodeFormatQR', message: barcodeMessage, messageEncoding: 'iso-8859-1', altText: dni },
     ],
     // storeCard: el strip (la foto) va debajo del encabezado. primaryFields se omite a propósito:
     // en storeCard se dibuja SOBRE el strip y taparía la foto.
@@ -81,7 +83,7 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
         ...(clean(f.nacionalidad, 40) ? [{ key: 'nacionalidad', label: 'NACIONALIDAD', value: clean(f.nacionalidad, 40) }] : []),
         { key: 'emision', label: 'FECHA DE EMISIÓN', value: clean(f.emision, 10) || '—' },
         ...(clean(f.vencimiento, 10) ? [{ key: 'vencimiento', label: 'FECHA DE VENCIMIENTO', value: clean(f.vencimiento, 10) }] : []),
-        { key: 'codigo', label: 'CÓDIGO PDF417', value: raw || '—' },
+        { key: 'codigo', label: f.codeFormat === 'qr' ? 'CÓDIGO QR' : 'CÓDIGO PDF417', value: raw || '—' },
         // El DNI Digital de verdad vive en Mi Argentina. Los enlaces solo funcionan en el dorso del pase,
         // a través de attributedValue. El esquema miargentina:// abre la app directamente (probado en un
         // iPhone el 2026-09-12); universal link no tienen. El texto plano deja el sitio a la vista por si
