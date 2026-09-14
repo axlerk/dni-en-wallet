@@ -373,12 +373,20 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
    * Devuelve el control al navegador entre intento e intento. Decodificar es trabajo sincrónico y largo:
    * sin esta pausa la página queda congelada mientras se busca el código y ni siquiera gira el indicador.
    */
-  const respirar = () => new Promise((r) => setTimeout(r, 0));
+  const respirar = (() => {
+    // MessageChannel y no setTimeout: los timers de una pestaña en segundo plano se frenan a un segundo,
+    // y con una docena de pausas la búsqueda pasaba de medio segundo a más de cinco (medido 2026-09-14).
+    const canal = new MessageChannel();
+    const cola = [];
+    canal.port1.onmessage = () => { const seguir = cola.shift(); if (seguir) seguir(); };
+    return () => new Promise((seguir) => { cola.push(seguir); canal.port2.postMessage(0); });
+  })();
 
   /** Dibuja la foto (o un recorte) en un canvas propio. willReadFrequently: el decodificador lee todos los
    *  píxeles y sin esa bandera cada lectura vuelve de la GPU, lo que multiplica el tiempo del barrido. */
-  function lienzo(img, { sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight, escala = 1, rot = 0 }) {
-    const w = Math.round(sw * escala), h = Math.round(sh * escala);
+  function lienzo(img, { sx = 0, sy = 0, sw = img.naturalWidth || img.width, sh = img.naturalHeight || img.height, escala = 1, ancho = 0, rot = 0 }) {
+    const e = ancho ? ancho / sw : escala;
+    const w = Math.round(sw * e), h = Math.round(sh * e);
     const swap = rot === 90 || rot === 270;
     const c = document.createElement('canvas');
     c.width = swap ? h : w; c.height = swap ? w : h;
@@ -433,28 +441,30 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   }
 
   /**
-   * Rescate para el QR del DNI electrónico 2026: muy denso (~77 módulos) e impreso sobre guilloché de color.
-   * ZXing no le encuentra los patrones de posición en la foto entera a ninguna escala (medido 2026-09-14),
-   * pero sí cuando el símbolo llena el cuadro y viene ampliado ~2×. Como el acierto depende de cómo caiga
-   * el remuestreo sobre la grilla de módulos, se barren varias ampliaciones y se corta en la primera lectura.
+   * Rescate para el QR del DNI electrónico 2026: muy denso (~85 módulos) e impreso sobre guilloché de color.
+   * ZXing no lo encuentra en la foto entera, pero sí en un recorte alrededor del símbolo dibujado a un
+   * **tamaño absoluto** concreto. Lo que decide es cuántos píxeles tiene cada módulo al decodificar, no
+   * cuánto se amplió el recorte: una versión anterior ampliaba ×2, lo que daba lienzos de 2700 px, tardaba
+   * segundos y dependía de la suerte del remuestreo. Con esta lista, medida sobre diez fotos (una real y
+   * nueve sintéticas con impresión sobre guilloché, brillo, giro, ruido y desenfoque), siete aciertan en el
+   * primer intento, ninguna pasa del cuarto, y el barrido entero sin código cuesta 0,8 s.
    */
-  async function rescateQR(img) {
-    for (const z of zonasDensas(img, 2)) {
-      // Medido sobre un DNI electrónico real: lo que importa es dibujar el recorte al **doble** de sus
-      // píxeles; ahí ZXing acierta en 6 de 15 recortes y en ninguna otra ampliación (×1.6, ×2.5, ×3: cero).
-      // Cuál recorte acierta depende de cómo caiga el remuestreo sobre la grilla de módulos, y el margen
-      // es justamente lo que corre esa fase: por eso se barre el margen y no la escala.
-      for (const [escala, margenes] of [[2, [1.2, 1.4, 1.6, 1.9, 2.2, 2.5]], [2.2, [1.4, 2]], [1.9, [1.5]]]) {
-        for (const margen of margenes) {
-          await respirar();
-          const lado = z.lado * margen;
-          const sx = Math.max(0, Math.min(img.naturalWidth - 1, z.cx - lado / 2));
-          const sy = Math.max(0, Math.min(img.naturalHeight - 1, z.cy - lado / 2));
-          const sw = Math.min(lado, img.naturalWidth - sx), sh = Math.min(lado, img.naturalHeight - sy);
-          const c = lienzo(img, { sx, sy, sw, sh, escala });
-          const hit = decodeWithZXing(c, true) || (await decodeWithNative(c));
-          if (hit) return hit;
-        }
+  const RESCATE = [[800, 1.35], [1000, 1.35], [600, 1.35], [400, 1.6], [1200, 1.35], [800, 1.15],
+    [1000, 1.6], [600, 2], [1600, 1.35], [800, 2], [1200, 1.6], [400, 1.35], [1600, 1.6], [1000, 1.15],
+    [1200, 2], [600, 1.15]];
+
+  async function rescateQR(img, zonas, desde, hasta) {
+    for (const z of zonas) {
+      for (let k = desde; k < hasta; k++) {
+        const [ancho, margen] = RESCATE[k];
+        await respirar();
+        const lado = z.lado * margen;
+        const sx = Math.max(0, Math.min(img.naturalWidth - 1, z.cx - lado / 2));
+        const sy = Math.max(0, Math.min(img.naturalHeight - 1, z.cy - lado / 2));
+        const sw = Math.min(lado, img.naturalWidth - sx), sh = Math.min(lado, img.naturalHeight - sy);
+        const c = lienzo(img, { sx, sy, sw, sh, ancho });
+        const hit = decodeWithZXing(c, true) || (await decodeWithNative(c));
+        if (hit) return hit;
       }
     }
     return null;
@@ -463,23 +473,29 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   /** Reintenta a varias escalas y rotaciones — las fotos de celular rara vez salen perfectas. Usa la foto completa, no el recorte. */
   async function decodeCodigo(img) {
     const base = Math.max(img.naturalWidth, img.naturalHeight);
-    // 1) Resolución nativa: reducir la foto borra los módulos del QR denso. Donde hay BarcodeDetector
-    //    (Chrome, no Safari) esto sólo alcanza para leerlo, y cuesta un intento.
-    const nativa = (await decodeWithNative(lienzo(img, {}))) || decodeWithZXing(lienzo(img, {}), true);
+    // 1) Resolución nativa, sólo para el detector del navegador: es el único que lee el QR denso de la
+    //    foto entera, y necesita todos los píxeles. Donde no existe (Safari) esto no cuesta nada.
+    const nativa = await decodeWithNative(lienzo(img, {}));
     if (nativa) return nativa;
     // 2) Barrido clásico para el PDF417, que se lee mejor reducido. Sólo dos giros: el lector de ZXing
     //    resuelve solo el 180° (comprobado con el mismo código impreso derecho y al revés), así que alcanza
     //    con 0° y 90°. Y sin el paso de 2200 px, que ya cubre el intento a resolución nativa.
+    // El paso a 1600 px sale de la foto; los dos siguientes salen de ese mismo lienzo, que es mucho
+    // más chico: reescalar un original de 12 Mpx tres veces cuesta más que decodificar.
+    const medio = lienzo(img, { escala: Math.min(1, 1600 / base) });
     for (const px of [1600, 1200, 900]) {
-      const escala = Math.min(1, px / base);
+      const escala = Math.min(1, px / medio.width);
       for (const rot of [0, 90]) {
         await respirar();
-        const hit = (await decodeWithNative(lienzo(img, { escala, rot }))) || decodeWithZXing(lienzo(img, { escala, rot }));
+        const c = lienzo(medio, { escala, rot });
+        const hit = (await decodeWithNative(c)) || decodeWithZXing(c);
         if (hit) return hit;
       }
     }
-    // 3) Último recurso, sólo para el QR: ubicarlo y ampliarlo.
-    return await rescateQR(img);
+    // 3) Y si no había PDF417, el rescate del QR. Va al final a propósito: el detector de QR se atasca
+    //    entre las barras de un PDF417 (una foto con código de barras tardaba veinte segundos acá),
+    //    y el barrido de arriba ya descartó esa posibilidad por poco más de cien milisegundos.
+    return await rescateQR(img, zonasDensas(img, 2), 0, RESCATE.length);
   }
 
   // ---------- Fechas: separadores automáticos ----------
