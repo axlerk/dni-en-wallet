@@ -287,20 +287,45 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
 
   const onlyDigits = (s) => String(s || '').replace(/\D/g, '');
 
+  /**
+   * El DNI electrónico 2026 cierra su código con un JWT firmado (RS256) por el emisor. Es la parte que
+   * hace verificable al documento, así que **no entra en el pase**: esto es una copia de referencia, no
+   * un facsímil, y un pase que un lector oficial pudiera dar por bueno sería justamente lo contrario.
+   */
+  const ES_JWT = /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\./;
+
+  /** DD/MM/AA → DD/MM/AAAA: el código nuevo abrevia el año. Nadie nace ni tramita en el futuro. */
+  function expandirAnio(v) {
+    const m = /^(\d{2})\/(\d{2})\/(\d{2})$/.exec(String(v || '').trim());
+    if (!m) return String(v || '').trim();
+    const yy = Number(m[3]), actual = new Date().getFullYear();
+    return `${m[1]}/${m[2]}/${2000 + yy <= actual ? 2000 + yy : 1900 + yy}`;
+  }
+
   function parseDni(raw) {
     const t = String(raw || '').trim();
     if (!t.includes('@')) return null;
     const p = t.split('@').map((s) => s.trim());
-    // El formato viejo tiene muchos más campos; el nuevo son 9 (a veces 8 sin CUIL).
+    // Tres formatos. El viejo tiene muchos más campos; entre los dos de 8-9 decide la forma, no la cantidad:
+    // el del DNI electrónico no trae sexo, abrevia los años y termina en un JWT.
+    // 7 campos cuando ya se le quitó la firma (es lo que guardamos y lo que puede volver a pegarse a mano).
+    const electronico = p.length >= 7 && (ES_JWT.test(p[7] || '') || (/^\d{7,9}$/.test(p[3] || '') && onlyLetter(p[4])));
     const f = p.length >= 14
       ? { dni: onlyDigits(p[1]), ejemplar: onlyLetter(p[2]), apellido: p[4], nombres: p[5], nacionalidad: p[6] || '', nacimiento: p[7], sexo: parseSexo(p[8]), emision: p[9], vencimiento: isDate(p[12]) ? p[12] : '', tramite: '', cuil: '' }
-      : p.length >= 8
-        ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: parseSexo(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '', nacionalidad: '', cuil: cuilFrom(p[8], onlyDigits(p[4])) }
-        : null;
+      : electronico
+        ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], dni: onlyDigits(p[3]), ejemplar: onlyLetter(p[4]), nacimiento: expandirAnio(p[5]), emision: expandirAnio(p[6]), sexo: '', nacionalidad: '', cuil: '', vencimiento: '' }
+        : p.length >= 8
+          ? { tramite: onlyDigits(p[0]), apellido: p[1], nombres: p[2], sexo: parseSexo(p[3]), dni: onlyDigits(p[4]), ejemplar: onlyLetter(p[5]), nacimiento: p[6], emision: p[7], vencimiento: '', nacionalidad: '', cuil: cuilFrom(p[8], onlyDigits(p[4])) }
+          : null;
     if (!f || !f.dni || !f.apellido || !f.nombres) return null;
     if (!isDate(f.nacimiento)) f.nacimiento = '';
     if (!isDate(f.emision)) f.emision = '';
-    return { ...f, raw: t };
+    // Con dos dígitos de año, un nacimiento posterior a la emisión sólo puede ser del siglo anterior.
+    if (electronico && f.nacimiento && f.emision && Number(f.nacimiento.slice(6)) > Number(f.emision.slice(6))) {
+      f.nacimiento = f.nacimiento.slice(0, 6) + (Number(f.nacimiento.slice(6)) - 100);
+    }
+    // Sin la firma: lo que viaja al pase son los datos, no la parte que haría verificable a la copia.
+    return { ...f, raw: electronico ? p.slice(0, 7).join('@') : t };
   }
 
   /** Las dos simbologías que puede traer un DNI: PDF417 hasta 2026, QR en el DNI electrónico nuevo. */
@@ -323,42 +348,120 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
    * y lo vuelve a decodificar en cada intento, y son 16 intentos por foto (4 escalas × 4 rotaciones).
    * `reader.decode(canvas)` no sirve: arma su propio canvas de captura con tamaño 0 y tira IndexSizeError.
    */
-  function decodeWithZXing(canvas) {
+  function decodeWithZXing(canvas, soloQR) {
     const Z = window.ZXing;
     if (!Z?.HTMLCanvasElementLuminanceSource || !Z?.MultiFormatReader) return null;
     try {
       const source = new Z.HTMLCanvasElementLuminanceSource(canvas);
       const bitmap = new Z.BinaryBitmap(new Z.HybridBinarizer(source));
       // Un solo barrido para las dos simbologías: la binarización es lo caro y así se hace una sola vez.
-      const hints = new Map([[Z.DecodeHintType.POSSIBLE_FORMATS, [Z.BarcodeFormat.PDF_417, Z.BarcodeFormat.QR_CODE]]]);
+      // Pero en imágenes grandes el lector de PDF417 recorre todas las filas y tarda segundos, así que
+      // donde sólo puede haber un QR (resolución nativa, rescate) se pide únicamente QR.
+      const formatos = soloQR ? [Z.BarcodeFormat.QR_CODE] : [Z.BarcodeFormat.PDF_417, Z.BarcodeFormat.QR_CODE];
+      const hints = new Map([[Z.DecodeHintType.POSSIBLE_FORMATS, formatos]]);
       const res = new Z.MultiFormatReader().decode(bitmap, hints);
       const text = res?.getText?.();
       return text ? { text, format: res.getBarcodeFormat() === Z.BarcodeFormat.QR_CODE ? 'qr' : 'pdf417' } : null;
     } catch { return null; }
   }
 
-  /** Reintenta a varias escalas y rotaciones — las fotos de celular rara vez salen perfectas. Usa la foto completa, no el recorte. */
-  async function decodeCodigo(img) {
-    const base = Math.max(img.naturalWidth, img.naturalHeight);
-    const scales = [1600, 1200, 900, 2200].map((px) => Math.min(1, px / base));
-    const rotations = [0, 180, 90, 270];
-    for (const s of scales) {
-      for (const rot of rotations) {
-        const c = document.createElement('canvas');
-        const w = Math.round(img.naturalWidth * s), h = Math.round(img.naturalHeight * s);
-        const swap = rot === 90 || rot === 270;
-        c.width = swap ? h : w; c.height = swap ? w : h;
-        // willReadFrequently: el decodificador lee todos los píxeles; sin esto cada lectura baja de la GPU y el
-        // barrido de 16 intentos se vuelve varias veces más lento.
-        const ctx = c.getContext('2d', { willReadFrequently: true });
-        ctx.translate(c.width / 2, c.height / 2);
-        ctx.rotate((rot * Math.PI) / 180);
-        ctx.drawImage(img, -w / 2, -h / 2, w, h);
-        const hit = (await decodeWithNative(c)) || (await decodeWithZXing(c));
-        if (hit) return hit;
+  /** Dibuja la foto (o un recorte) en un canvas propio. willReadFrequently: el decodificador lee todos los
+   *  píxeles y sin esa bandera cada lectura vuelve de la GPU, lo que multiplica el tiempo del barrido. */
+  function lienzo(img, { sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight, escala = 1, rot = 0 }) {
+    const w = Math.round(sw * escala), h = Math.round(sh * escala);
+    const swap = rot === 90 || rot === 270;
+    const c = document.createElement('canvas');
+    c.width = swap ? h : w; c.height = swap ? w : h;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.imageSmoothingQuality = 'high';
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate((rot * Math.PI) / 180);
+    ctx.drawImage(img, sx, sy, sw, sh, -w / 2, -h / 2, w, h);
+    return c;
+  }
+
+  /**
+   * Zonas con más textura fina de la foto, de mayor a menor. Sirve para encontrar el QR sin decodificar:
+   * un símbolo denso concentra muchísimo más borde por área que el texto o el guilloché del documento.
+   * Trabaja sobre una miniatura de 320 px, así que cuesta un par de milisegundos.
+   */
+  function zonasDensas(img, cuantas) {
+    const w = 320, h = Math.max(1, Math.round((320 * img.naturalHeight) / img.naturalWidth));
+    const ctx = lienzo(img, { escala: w / img.naturalWidth }).getContext('2d', { willReadFrequently: true });
+    const p = ctx.getImageData(0, 0, w, h).data;
+    const gris = new Float32Array(w * h);
+    for (let i = 0, j = 0; i < p.length; i += 4, j++) gris[j] = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
+    const celda = 8, gw = Math.floor(w / celda), gh = Math.floor(h / celda);
+    const acc = new Float32Array(gw * gh);
+    for (let y = 1; y < gh * celda - 1; y++) {
+      for (let x = 1; x < gw * celda - 1; x++) {
+        const i = y * w + x;
+        acc[Math.floor(y / celda) * gw + Math.floor(x / celda)] += Math.abs(gris[i] - gris[i + 1]) + Math.abs(gris[i] - gris[i + w]);
+      }
+    }
+    const lado = Math.max(3, Math.round(gw * 0.22));
+    const cand = [];
+    for (let gy = 0; gy + lado <= gh; gy++) {
+      for (let gx = 0; gx + lado <= gw; gx++) {
+        let suma = 0;
+        for (let j = 0; j < lado; j++) for (let i = 0; i < lado; i++) suma += acc[(gy + j) * gw + gx + i];
+        cand.push({ gx, gy, suma });
+      }
+    }
+    cand.sort((a, b) => b.suma - a.suma);
+    const escala = img.naturalWidth / w, elegidas = [];
+    for (const k of cand) {
+      if (elegidas.some((o) => Math.abs(o.gx - k.gx) < lado * 0.7 && Math.abs(o.gy - k.gy) < lado * 0.7)) continue;
+      elegidas.push(k);
+      if (elegidas.length >= cuantas) break;
+    }
+    return elegidas.map((k) => ({
+      cx: (k.gx + lado / 2) * celda * escala,
+      cy: (k.gy + lado / 2) * celda * escala,
+      lado: lado * celda * escala,
+    }));
+  }
+
+  /**
+   * Rescate para el QR del DNI electrónico 2026: muy denso (~77 módulos) e impreso sobre guilloché de color.
+   * ZXing no le encuentra los patrones de posición en la foto entera a ninguna escala (medido 2026-09-14),
+   * pero sí cuando el símbolo llena el cuadro y viene ampliado ~2×. Como el acierto depende de cómo caiga
+   * el remuestreo sobre la grilla de módulos, se barren varias ampliaciones y se corta en la primera lectura.
+   */
+  async function rescateQR(img) {
+    for (const z of zonasDensas(img, 2)) {
+      for (const margen of [1.5, 1.8, 2.2]) {
+        const lado = z.lado * margen;
+        const sx = Math.max(0, Math.min(img.naturalWidth - 1, z.cx - lado / 2));
+        const sy = Math.max(0, Math.min(img.naturalHeight - 1, z.cy - lado / 2));
+        const sw = Math.min(lado, img.naturalWidth - sx), sh = Math.min(lado, img.naturalHeight - sy);
+        for (const escala of [2, 2.1, 2.2, 1.9, 2.4, 1.8, 2.6]) {
+          const c = lienzo(img, { sx, sy, sw, sh, escala });
+          const hit = decodeWithZXing(c, true) || (await decodeWithNative(c));
+          if (hit) return hit;
+        }
       }
     }
     return null;
+  }
+
+  /** Reintenta a varias escalas y rotaciones — las fotos de celular rara vez salen perfectas. Usa la foto completa, no el recorte. */
+  async function decodeCodigo(img) {
+    const base = Math.max(img.naturalWidth, img.naturalHeight);
+    // 1) Resolución nativa: reducir la foto borra los módulos del QR denso. Donde hay BarcodeDetector
+    //    (Chrome, no Safari) esto sólo alcanza para leerlo, y cuesta un intento.
+    const nativa = (await decodeWithNative(lienzo(img, {}))) || decodeWithZXing(lienzo(img, {}), true);
+    if (nativa) return nativa;
+    // 2) Barrido clásico: el PDF417 se lee mejor reducido, y las rotaciones cubren la foto al revés.
+    for (const px of [1600, 1200, 900, 2200]) {
+      const escala = Math.min(1, px / base);
+      for (const rot of [0, 180, 90, 270]) {
+        const hit = (await decodeWithNative(lienzo(img, { escala, rot }))) || decodeWithZXing(lienzo(img, { escala, rot }));
+        if (hit) return hit;
+      }
+    }
+    // 3) Último recurso, sólo para el QR: ubicarlo y ampliarlo.
+    return await rescateQR(img);
   }
 
   // ---------- Fechas: separadores automáticos ----------

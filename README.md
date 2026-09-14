@@ -7,10 +7,11 @@ Una copia de referencia del DNI argentino como pase de Apple Wallet (`.pkpass`),
 ## Cómo funciona
 
 1. Se saca la foto del **frente** y, si hace falta, la del **dorso**, con la cámara de la página y un marco con la proporción real de la tarjeta.
-2. El código se busca en las dos caras, porque según la generación del DNI está adelante o atrás: **PDF417** en los DNI tarjeta y **QR** en el electrónico que el RENAPER empezó a emitir en 2026. Los dos formatos de PDF417 se reconocen por la cantidad de campos: el nuevo (2012 en adelante) trae 9 y el viejo (2009–2012) entre 16 y 17, con la fecha de vencimiento y la nacionalidad. El contenido del QR del DNI electrónico todavía no está documentado: se lee y se guarda tal cual, y los datos se completan a mano.
-3. Se completan solos apellido, nombres, DNI, sexo, nacimiento, ejemplar, trámite y emisión. El CUIL se calcula con la fórmula pública (prefijo por sexo más dígito verificador módulo 11) y la nacionalidad se sugiere cuando el número está por debajo de la serie de extranjeros. Todo campo se puede corregir a mano.
-4. El encuadre se ajusta en el marco: arrastrar mueve, pellizcar acerca, doble toque reinicia. Lo que se ve en el marco es lo que va al pase.
-5. «Agregar a Apple Wallet» arma el pase y lo entrega al teléfono.
+2. El código se busca en las dos caras, porque según la generación del DNI está adelante o atrás: **PDF417** en los DNI tarjeta y **QR** en el electrónico que el RENAPER empezó a emitir en 2026. Se reconocen tres formatos por su forma: el PDF417 nuevo (2012 en adelante, 9 campos), el viejo (2009–2012, 16 o 17 campos, con vencimiento y nacionalidad) y el del DNI electrónico, que no trae sexo, abrevia los años y termina con un token firmado.
+3. **Ese token firmado no entra en el pase.** Es lo que hace verificable al documento; copiarlo sería convertir una copia de referencia en un facsímil. Se guardan los datos, no la firma.
+4. Se completan solos apellido, nombres, DNI, nacimiento, ejemplar, trámite y emisión — y el sexo, salvo en el DNI electrónico, cuyo código no lo trae. El CUIL se calcula con la fórmula pública (prefijo por sexo más dígito verificador módulo 11) y la nacionalidad se sugiere cuando el número está por debajo de la serie de extranjeros. Todo campo se puede corregir a mano.
+5. El encuadre se ajusta en el marco: arrastrar mueve, pellizcar acerca, doble toque reinicia. Lo que se ve en el marco es lo que va al pase.
+6. «Agregar a Apple Wallet» arma el pase y lo entrega al teléfono.
 
 ## La foto no sale del teléfono
 
