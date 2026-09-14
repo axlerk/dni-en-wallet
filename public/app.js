@@ -39,7 +39,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   // Wallet recorta la fila de campos a 4 (probado en iPhone el 2026-09-12: con 6 campos descartó SEXO y REFERENCIA),
   // así que el resto de los datos vive en el dorso del pase, no encima de la foto.
   // `radius`: mismo redondeo que el recuadro del código de barras que dibuja Wallet abajo del pase (~8 pt).
-  const STRIP = { w: 375, h: 123, gap: 3, radius: 8, bg: COLORS.background };
+  const STRIP = { w: 375, h: 123, gap: 4, pad: 6, radius: 8, bg: COLORS.background };
   const CARD_RATIO = 85.6 / 54; // 1.585…
   const ZOOM = { min: 1, max: 5 };
 
@@ -118,10 +118,14 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     if (onlyFront()) {
       draw(state.front, 0, c.width);
     } else {
+      // Con las dos caras cada tarjeta ocupa media tira, así que llegaría pegada al borde del pase y se
+      // lee como recortada (además Wallet redondea las esquinas del strip). Se deja un margen a los lados;
+      // el de arriba y abajo sale solo al encajar la proporción de la tarjeta, y queda parejo con éste.
+      const pad = Math.round(STRIP.pad * scale);
       const gap = Math.round(STRIP.gap * scale);
-      const half = (c.width - gap) / 2;
-      draw(state.front, 0, half);
-      draw(state.back, half + gap, half);
+      const half = (c.width - pad * 2 - gap) / 2;
+      draw(state.front, pad, half);
+      draw(state.back, pad + half + gap, half);
     }
     return c;
   }
