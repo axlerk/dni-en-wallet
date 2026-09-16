@@ -28,7 +28,9 @@ El `.pkpass` terminado lo entrega el **service worker**: la página le pasa los 
 `/api/sign` está limitado a 6 pedidos cada 10 segundos por IP y rechaza un `Origin` de otro sitio, para que
 nadie lo use como servicio de firma ajeno.
 
-No se guarda nada en ninguno de los dos caminos: la request entra, se firma y se responde. No hay base de datos, ni cuentas, ni cookies, ni analítica, ni un solo pedido a otro dominio.
+No se guarda nada del documento en ninguno de los dos caminos: la request entra, se firma y se responde. No hay base de datos, ni cuentas, ni cookies, ni analítica en la página, ni un solo pedido a otro dominio.
+
+Lo único que queda es un **contador**: cada firma exitosa suma un evento en Workers Analytics Engine con una sola palabra, el camino (`sign` o `pass`). No lleva IP, ni datos, ni serial, ni nada que permita saber de quién es el pase; sirve para saber cuántos pases se generaron. Cuenta pases firmados, no pases agregados a Wallet: eso no se puede ver sin que el teléfono le hable al servidor, y no queremos que lo haga.
 
 ## El pase
 

@@ -19,6 +19,10 @@ function certsFrom(env) {
   };
 }
 
+// Contador de pases firmados: un evento por firma exitosa, con el nombre del camino y nada más.
+// Sin IP, sin campos del documento, sin serial. Si el binding no está (wrangler dev), no cuenta.
+const contar = (env, camino) => env.PASES?.writeDataPoint({ blobs: [camino], indexes: [camino] });
+
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
 const text = (msg, status) => new Response(msg, { status, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 
@@ -45,6 +49,7 @@ export default {
         let body;
         try { body = JSON.parse(raw); } catch { return text('Body no es JSON', 400); }
         const out = await signClientPass({ cfg, certs: certsFrom(env), assets: ASSETS, fields: body.fields, strips: body.strips });
+        contar(env, 'sign');
         return json({
           passJson: td.decode(out.passJson),
           manifest: td.decode(out.manifestBytes),
@@ -58,6 +63,7 @@ export default {
         if (len > MAX_BODY) return text('Body demasiado grande', 413);
         const { fields, strips } = parsePassForm(await req.text());
         const { bytes, serial } = await createPkpass({ cfg, certs: certsFrom(env), assets: ASSETS, fields, strips });
+        contar(env, 'pass');
         return new Response(bytes, {
           status: 200,
           headers: {

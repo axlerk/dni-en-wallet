@@ -12,7 +12,8 @@
     "assets": "node scripts/gen-pass-assets.mjs",
     "dev:worker": "wrangler dev",
     "deploy": "wrangler deploy",
-    "secrets": "sh scripts/put-secrets.sh"
+    "secrets": "sh scripts/put-secrets.sh",
+    "stats": "node scripts/stats.mjs"
   },
   "engines": {
     "node": ">=20"
