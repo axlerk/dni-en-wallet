@@ -152,11 +152,12 @@
   <section class="privacy" id="privacy">
     <h2>Qué pasa con tus datos</h2>
     <ul>
-      <li><b>En tu teléfono y solo ahí:</b> la cámara, el recorte, la lectura del código PDF417 y el armado de la imagen del pase.</li>
-      <li><b>Lo que viaja al servidor:</b> <span id="privacyUpload">los datos del documento (apellido, nombres, número, fechas) y un hash de cada imagen, pero no la foto</span>, para poder firmar el pase con el certificado de Apple. La clave privada no puede vivir en el navegador, por eso hace falta ese paso.</li>
+      <li><b>En tu teléfono y solo ahí:</b> la cámara, el recorte, la lectura del código (PDF417 o QR) y el armado de la imagen del pase.</li>
+      <li><b>Lo que viaja al servidor:</b> <span id="privacyUpload">todos los datos del formulario (apellido, nombres, número, sexo, fechas, ejemplar, trámite, CUIL, nacionalidad y el texto del código leído) y un hash de cada imagen, pero no la foto</span>, para poder firmar el pase con el certificado de Apple. La clave privada no puede vivir en el navegador, por eso hace falta ese paso.</li>
       <li><b>Si el armado en el teléfono falla:</b> se puede armar en el servidor, pero para eso viaja también la imagen de la tarjeta. Nunca pasa solo: la página te pregunta antes y, si decís que no, no sale nada.</li>
-      <li><b>Lo que se guarda:</b> nada. La request entra, se firma y se responde. No hay base de datos, ni archivos, ni cuentas, ni cookies.</li>
-      <li><b>Lo que no hay:</b> analítica, rastreadores, fuentes ni scripts de terceros. La página no hace un solo pedido fuera de este dominio.</li>
+      <li><b>Lo que se guarda de tus datos:</b> nada. La request entra, se firma y se responde. No hay base de datos, ni archivos, ni cuentas, ni cookies. Si el servidor falla, queda solo el mensaje del error, sin tus datos.</li>
+      <li><b>Lo que se cuenta:</b> cuántos pases se firman. Cada firma suma uno a un contador, sin IP, sin datos y sin nada que diga de quién es el pase.</li>
+      <li><b>Lo que no hay:</b> analítica en la página, rastreadores, fuentes ni scripts de terceros. La página no hace un solo pedido fuera de este dominio.</li>
       <li><b>Lo que ve Cloudflare,</b> que aloja el sitio: los datos técnicos de cada request (fecha, IP, ruta, estado), como cualquier servidor. El contenido no se almacena.</li>
       <li><b>Nunca buscamos datos por número:</b> todo sale del documento que tenés en la mano.</li>
     </ul>

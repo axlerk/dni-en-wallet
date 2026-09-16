@@ -15,7 +15,7 @@ Una copia de referencia del DNI argentino como pase de Apple Wallet (`.pkpass`),
 
 ## Qué viaja al servidor
 
-El pase se arma entero en el navegador: `pass.json`, las imágenes y el zip. Para firmarlo, al servidor viajan **los datos del documento** —apellido, nombres, número de DNI, fechas, ejemplar, trámite— y tres hashes SHA-1 de las imágenes, unos 400 bytes. **La foto no viaja.**
+El pase se arma entero en el navegador: `pass.json`, las imágenes y el zip. Para firmarlo, al servidor viajan **todos los datos del formulario** —apellido, nombres, número de DNI, sexo, fechas, ejemplar, trámite, CUIL, nacionalidad y el texto crudo del código leído— y tres hashes SHA-1 de las imágenes, alrededor de medio kilobyte. **La foto no viaja.**
 
 Los datos sí tienen que viajar siempre: la firma exige la clave privada del certificado de Apple, y esa clave no puede estar en el teléfono sin quedar expuesta para cualquiera.
 
@@ -28,7 +28,7 @@ El `.pkpass` terminado lo entrega el **service worker**: la página le pasa los 
 `/api/sign` está limitado a 6 pedidos cada 10 segundos por IP y rechaza un `Origin` de otro sitio, para que
 nadie lo use como servicio de firma ajeno.
 
-No se guarda nada del documento en ninguno de los dos caminos: la request entra, se firma y se responde. No hay base de datos, ni cuentas, ni cookies, ni analítica en la página, ni un solo pedido a otro dominio.
+No se guarda nada del documento en ninguno de los dos caminos: la request entra, se firma y se responde. Los logs de invocación de Workers están apagados (`wrangler.toml`); si algo falla con un error 5xx queda solo el mensaje del error, sin los datos. No hay base de datos, ni cuentas, ni cookies, ni analítica en la página, ni un solo pedido a otro dominio.
 
 Lo único que queda es un **contador**: cada firma exitosa suma un evento en Workers Analytics Engine con una sola palabra, el camino (`sign` o `pass`). No lleva IP, ni datos, ni serial, ni nada que permita saber de quién es el pase; sirve para saber cuántos pases se generaron. Cuenta pases firmados, no pases agregados a Wallet: eso no se puede ver sin que el teléfono le hable al servidor, y no queremos que lo haga.
 

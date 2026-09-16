@@ -22,6 +22,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     frontOnly: true,    // la imagen del pase lleva solo el frente (por defecto; el checkbox aparece recién cuando hay dorso)
     scanning: false,    // buscando el PDF417
     building: false,    // armando el pase para Wallet
+    datosEnviados: false, // el armado local ya pidió la firma: los datos del formulario viajaron
     cuilTouched: false, // el usuario editó el CUIL a mano: dejamos de calcularlo
     cuilAuto: false,
     nacTouched: false,  // ídem para la nacionalidad sugerida
@@ -874,6 +875,8 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     const images = { 'strip.png': s1, 'strip@2x.png': s2, 'strip@3x.png': s3 };
     // Al servidor van los campos y el sha1 de cada imagen. La foto no: de ella solo viaja el hash.
     const strips = Object.fromEntries(await Promise.all(Object.entries(images).map(async ([n, b]) => [n, await sha1hex(b)])));
+    // Desde acá los datos del formulario ya pueden haber llegado al servidor, aunque después algo falle.
+    state.datosEnviados = true;
     const res = await fetch('api/sign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -927,6 +930,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     setStatus($('buildStatus'), '', '');
     $('serverConsent').hidden = true;
     state.building = true;
+    state.datosEnviados = false;
     updateCta();
     try {
       const { bytes, serial } = await buildPassLocally();
@@ -965,7 +969,11 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
 
   function onConsentNo() {
     $('serverConsent').hidden = true;
-    setStatus($('buildStatus'), 'No se mandó nada al servidor. Podés volver a intentarlo en el teléfono con «Agregar a Apple Wallet».', 'warn');
+    // Solo decimos «nada» si el armado falló antes de pedir la firma: si no, los datos ya viajaron.
+    const msg = state.datosEnviados
+      ? 'No se mandó la imagen. Los datos del formulario ya habían viajado para pedir la firma y no se guardan. Podés volver a intentarlo con «Agregar a Apple Wallet».'
+      : 'No se mandó nada al servidor. Podés volver a intentarlo en el teléfono con «Agregar a Apple Wallet».';
+    setStatus($('buildStatus'), msg, 'warn');
   }
 
   // ---------- Wiring ----------
