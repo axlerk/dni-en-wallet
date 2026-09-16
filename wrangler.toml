@@ -33,3 +33,8 @@ ORG_NAME = "OneGoodMan Studio"
 
 [observability]
 enabled = true
+
+# Sin logs de invocación: Workers Logs guardaría request y response de cada pedido (IP, ruta, cabeceras)
+# durante días. Quedan solo los console.error de fallas 5xx, que no llevan datos del documento.
+[observability.logs]
+invocation_logs = false
