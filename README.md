@@ -13,9 +13,13 @@ Una copia de referencia del DNI argentino como pase de Apple Wallet (`.pkpass`),
 5. El encuadre se ajusta en el marco: arrastrar mueve, pellizcar acerca, doble toque reinicia. Lo que se ve en el marco es lo que va al pase.
 6. «Agregar a Apple Wallet» arma el pase y lo entrega al teléfono.
 
-## La foto no sale del teléfono
+## Qué viaja al servidor
 
-El pase se arma entero en el navegador: `pass.json`, las imágenes y el zip. Al servidor viajan solo los campos del formulario y tres hashes SHA-1 de las imágenes, unos 400 bytes.
+El pase se arma entero en el navegador: `pass.json`, las imágenes y el zip. Para firmarlo, al servidor viajan **los datos del documento** —apellido, nombres, número de DNI, fechas, ejemplar, trámite— y tres hashes SHA-1 de las imágenes, unos 400 bytes. **La foto no viaja.**
+
+Los datos sí tienen que viajar siempre: la firma exige la clave privada del certificado de Apple, y esa clave no puede estar en el teléfono sin quedar expuesta para cualquiera.
+
+Hay un camino de respaldo, `/api/pass`, para cuando el armado en el teléfono falla (por ejemplo, sin service worker). Ese camino **sí sube la imagen de la tarjeta**, así que nunca se usa solo: la página explica qué se va a mandar y espera a que la persona toque «Enviar al servidor». Si elige «No, gracias», no sale nada.
 
 El servidor **no firma un manifest ajeno**: arma él mismo el `pass.json`, calcula los hashes de sus propios iconos y firma únicamente ese manifest. Firmar hashes a ciegas convertiría el endpoint en un oráculo de firma, donde cualquiera podría hacerse firmar un pase inventado con el certificado de Apple.
 
@@ -24,7 +28,7 @@ El `.pkpass` terminado lo entrega el **service worker**: la página le pasa los 
 `/api/sign` está limitado a 6 pedidos cada 10 segundos por IP y rechaza un `Origin` de otro sitio, para que
 nadie lo use como servicio de firma ajeno.
 
-No se guarda nada: la request entra, se firma y se responde. No hay base de datos, ni cuentas, ni cookies, ni analítica, ni un solo pedido a otro dominio.
+No se guarda nada en ninguno de los dos caminos: la request entra, se firma y se responde. No hay base de datos, ni cuentas, ni cookies, ni analítica, ni un solo pedido a otro dominio.
 
 ## El pase
 

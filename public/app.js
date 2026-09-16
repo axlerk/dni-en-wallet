@@ -860,8 +860,9 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   // Al tocar "Agregar": armo strips + campos y hago un POST de nivel superior.
   // Safari abre la hoja "Agregar a Wallet" al recibir application/vnd.apple.pkpass.
   // ---------- Armar el pase en el teléfono ----------
-  // El pase se arma acá y al servidor solo se le manda el manifest, que son hashes: la foto no sale del teléfono.
-  // Si algo de este camino falla, queda el de antes (POST de la imagen a /api/pass).
+  // El pase se arma acá: al servidor viajan los datos del formulario y el hash de cada imagen, la foto no.
+  // Si algo de este camino falla, queda el de antes (POST de la imagen a /api/pass), pero solo con permiso:
+  // ese camino sí manda la imagen de la tarjeta, y la página promete que no sale del teléfono.
   const PASS_ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
 
   const canvasBytes = (canvas) => new Promise((resolve, reject) => {
@@ -924,28 +925,52 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   async function submitPass() {
     readForm();
     setStatus($('buildStatus'), '', '');
+    $('serverConsent').hidden = true;
     state.building = true;
     updateCta();
     try {
       const { bytes, serial } = await buildPassLocally();
       await deliverToWallet(bytes, serial);
     } catch (e) {
-      // Cualquier tropiezo del camino local cae al de siempre, que ya sabemos que funciona.
-      console.warn('[pase] armado local falló, uso el servidor:', e?.message || e);
-      try {
-        submitViaServer();
-      } catch (e2) {
-        state.building = false;
-        updateCta();
-        setStatus($('buildStatus'), 'No se pudo armar el pase: ' + (e2?.message || e2), 'bad');
-        return;
-      }
+      // No se cae al servidor en silencio: ese camino sube la imagen, así que primero se pregunta.
+      console.warn('[pase] armado local falló:', e?.message || e);
+      state.building = false;
+      updateCta();
+      $('serverConsent').hidden = false;
+      $('consentYes').focus();
+      return;
     }
-    // El POST de nivel superior no vuelve al JS: soltamos el botón cuando Wallet ya tuvo tiempo de abrirse.
+    releaseAfterWallet();
+  }
+
+  // El POST de nivel superior no vuelve al JS: soltamos el botón cuando Wallet ya tuvo tiempo de abrirse.
+  function releaseAfterWallet() {
     setTimeout(() => { state.building = false; updateCta(); }, 4000);
   }
 
+  function onConsentYes() {
+    $('serverConsent').hidden = true;
+    state.building = true;
+    updateCta();
+    try {
+      submitViaServer();
+    } catch (e) {
+      state.building = false;
+      updateCta();
+      setStatus($('buildStatus'), 'No se pudo armar el pase: ' + (e?.message || e), 'bad');
+      return;
+    }
+    releaseAfterWallet();
+  }
+
+  function onConsentNo() {
+    $('serverConsent').hidden = true;
+    setStatus($('buildStatus'), 'No se mandó nada al servidor. Podés volver a intentarlo en el teléfono con «Agregar a Apple Wallet».', 'warn');
+  }
+
   // ---------- Wiring ----------
+  $('consentYes').addEventListener('click', onConsentYes);
+  $('consentNo').addEventListener('click', onConsentNo);
   for (const which of ['front', 'back']) {
     $(which + 'File').addEventListener('change', (e) => onPhoto(which, e.target.files[0]));
     $(which + 'Cta').addEventListener('click', () => openCamera(which));
