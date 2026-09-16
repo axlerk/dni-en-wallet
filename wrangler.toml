@@ -20,6 +20,12 @@ name = "SIGN_LIMITER"
 namespace_id = "1001"
 simple = { limit = 6, period = 10 }
 
+# Contador de pases firmados (ver worker/index.mjs → contar). Solo el camino: 'sign' o 'pass'.
+# Se consulta con `npm run stats`. Cloudflare guarda estos datos tres meses.
+[[analytics_engine_datasets]]
+binding = "PASES"
+dataset = "dni_wallet_pases"
+
 [vars]
 PASS_TYPE_ID = "pass.studio.onegoodman.dni"
 TEAM_ID = "6L425ZQW3T"
