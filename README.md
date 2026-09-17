@@ -103,3 +103,7 @@ Las cabeceras de seguridad están en `public/_headers`: HSTS, CSP, `nosniff`, `n
 ## Privacidad y límites
 
 Los datos salen únicamente del documento que tiene el usuario en la mano: el código de barras y sus propias fotos. **Nunca se consulta un número de DNI contra ningún padrón**, ni se buscan datos de terceros. La tarjeta tiene un diseño propio a propósito: es una copia de referencia, no un facsímil del documento oficial.
+
+## Licencia
+
+MIT — ver [`LICENSE`](LICENSE). La licencia cubre el código; no autoriza a presentar un clon como si fuera este sitio, y los certificados de Apple no forman parte del repositorio.

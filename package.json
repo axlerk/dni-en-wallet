@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Copia de referencia del DNI como pase de Apple Wallet (.pkpass). PWA en JS puro + servidor de firma mínimo.",
+  "license": "MIT",
   "scripts": {
     "start": "node server/index.mjs",
     "dev": "node --watch server/index.mjs",
