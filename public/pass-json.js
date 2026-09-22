@@ -43,7 +43,7 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
     serialNumber: serial,
     organizationName: cfg.orgName,
     description: `Copia de referencia del DNI ${dni}`,
-    logoText: 'DNI', // corto a propósito: Wallet trunca el logoText si el logo ocupa ancho
+    logoText: dni || 'DNI', // el número reemplaza a la palabra fija; sin DNI todavía cae al rótulo
     // Celeste de la bandera, texto blanco y el logo en amarillo: los tres colores, sin escudo ni Sol de Mayo.
     foregroundColor: COLORS.foreground,
     backgroundColor: COLORS.background,
@@ -63,12 +63,12 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
         { key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' },
       ],
       secondaryFields: [
-        { key: 'apellido', label: 'APELLIDO', value: apellido },
-        { key: 'nombres', label: 'NOMBRES', value: nombres },
+        { key: 'nombre', label: 'APELLIDO Y NOMBRES', value: `${apellido} ${nombres}`.trim() || '—' },
       ],
       auxiliaryFields: [
-        { key: 'dni', label: 'DNI', value: dni },
         { key: 'nac', label: 'NACIMIENTO', value: clean(f.nacimiento, 10) || '—' },
+        { key: 'tramite', label: 'Nº DE TRÁMITE', value: clean(f.tramite, 20) || '—' },
+        { key: 'vencimiento', label: 'VENCIMIENTO', value: clean(f.vencimiento, 10) || '—' },
       ],
       // El dorso (botón "•••" en Wallet) guarda el registro completo en texto, incluido el descargo.
       backFields: [
