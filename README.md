@@ -36,7 +36,7 @@ Lo único que queda es un **contador**: cada firma exitosa suma un evento en Wor
 
 Estilo `storeCard`, con los colores de la bandera: celeste de fondo, el logo en amarillo y el texto en blanco. La foto del documento ocupa el strip, con las esquinas redondeadas.
 
-Wallet dibuja adelante una sola fila de cuatro campos y descarta el resto en silencio, así que adelante van apellido, nombres, DNI y nacimiento, más sexo y ejemplar en el encabezado. Todo lo demás vive en el dorso, que se abre con el botón «•••»: el aviso legal, el nombre completo, el número de trámite, el CUIL, la nacionalidad, las fechas, el código PDF417 crudo y un enlace a Mi Argentina.
+Wallet dibuja adelante una sola fila de cuatro campos y descarta el resto en silencio, así que adelante van apellido, nombres, nacimiento y vencimiento, más sexo y ejemplar en el encabezado y el número de DNI en el logo. Todo lo demás vive en el dorso, que se abre con el botón «•••»: el aviso legal, el nombre completo, el número de trámite, el CUIL, la nacionalidad, las fechas, el código PDF417 crudo y un enlace a Mi Argentina.
 
 ## Estructura
 

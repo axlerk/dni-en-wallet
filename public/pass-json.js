@@ -63,11 +63,11 @@ export function buildPassJson(cfg, f, serial, now = new Date()) {
         { key: 'ejemplar', label: 'EJEMPLAR', value: clean(f.ejemplar, 1) || '—' },
       ],
       secondaryFields: [
-        { key: 'nombre', label: 'APELLIDO Y NOMBRES', value: `${apellido} ${nombres}`.trim() || '—' },
+        { key: 'apellido', label: 'APELLIDO', value: apellido },
+        { key: 'nombres', label: 'NOMBRES', value: nombres },
       ],
       auxiliaryFields: [
         { key: 'nac', label: 'NACIMIENTO', value: clean(f.nacimiento, 10) || '—' },
-        { key: 'tramite', label: 'Nº DE TRÁMITE', value: clean(f.tramite, 20) || '—' },
         { key: 'vencimiento', label: 'VENCIMIENTO', value: clean(f.vencimiento, 10) || '—' },
       ],
       // El dorso (botón "•••" en Wallet) guarda el registro completo en texto, incluido el descargo.
