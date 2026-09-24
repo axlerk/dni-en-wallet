@@ -1,8 +1,8 @@
 /* Armado del .pkpass: zip, manifest y hashes. Puro, sin dependencias, corre igual en el navegador y en Node.
  *
- * Vive en public/ a propósito. Con esto el teléfono puede armar el pase entero por su cuenta y pedirle al
- * servidor una sola cosa: la firma del manifest, que son hashes. Así la foto del documento nunca sale del
- * teléfono. El servidor sigue exponiendo /api/pass (armado completo) como camino de respaldo.
+ * Vive en public/ a propósito. Con esto el teléfono arma el pase entero por su cuenta y le pide al servidor
+ * una sola cosa: la firma del manifest, que son hashes. La foto del documento nunca sale del teléfono, sin
+ * excepciones: no hay camino de respaldo que la suba.
  */
 
 const te = new TextEncoder();
@@ -48,22 +48,9 @@ export function zipStore(files, date = new Date()) {
   return concat([...locals, cd, eocd]);
 }
 
-/** manifest.json: sha1 hex de cada archivo del pase. Es lo único que necesita ver quien firma. */
-export async function buildManifest(files) {
-  const manifest = {};
-  for (const [name, data] of Object.entries(files)) manifest[name] = await sha1hex(data);
-  return utf8(JSON.stringify(manifest));
-}
-
 /** Serial estable por documento: regenerar reemplaza el pase en Wallet en vez de duplicarlo. */
 export const passSerial = async (dni, ejemplar, passTypeId) =>
   'dni-' + (await sha256hex(`${dni}|${ejemplar}|${passTypeId}`)).slice(0, 24);
-
-export function dataUrlToPng(s) {
-  const m = /^data:image\/png;base64,([A-Za-z0-9+/=]+)$/.exec(String(s || ''));
-  if (!m) throw Object.assign(new Error('strip inválido (se espera data:image/png;base64)'), { status: 400 });
-  return fromBase64(m[1]);
-}
 
 /** Los nombres de archivo que puede tener un manifest nuestro: el servidor no firma cualquier cosa. */
 export const PASS_FILES = [

@@ -15,11 +15,11 @@ Una copia de referencia del DNI argentino como pase de Apple Wallet (`.pkpass`),
 
 ## Qué viaja al servidor
 
-El pase se arma entero en el navegador: `pass.json`, las imágenes y el zip. Para firmarlo, al servidor viajan **todos los datos del formulario** —apellido, nombres, número de DNI, sexo, fechas, ejemplar, trámite, CUIL, nacionalidad y el texto crudo del código leído— y tres hashes SHA-1 de las imágenes, alrededor de medio kilobyte. **La foto no viaja.**
+El pase se arma entero en el navegador: `pass.json`, las imágenes y el zip. Para firmarlo, al servidor viajan **todos los datos del formulario** —apellido, nombres, número de DNI, sexo, fechas, ejemplar, trámite, CUIL, nacionalidad y el texto crudo del código leído— y tres hashes SHA-1 de las imágenes, alrededor de medio kilobyte. **La foto no viaja, nunca: no hay ningún camino que la suba.**
 
 Los datos sí tienen que viajar siempre: la firma exige la clave privada del certificado de Apple, y esa clave no puede estar en el teléfono sin quedar expuesta para cualquiera.
 
-Hay un camino de respaldo, `/api/pass`, para cuando el armado en el teléfono falla (por ejemplo, sin service worker). Ese camino **sí sube la imagen de la tarjeta**, así que nunca se usa solo: la página explica qué se va a mandar y espera a que la persona toque «Enviar al servidor». Si elige «No, gracias», no sale nada.
+Si el armado en el teléfono falla (por ejemplo, sin service worker), la página lo dice y no hace nada más: no existe un camino de respaldo que suba la imagen de la tarjeta al servidor.
 
 El servidor **no firma un manifest ajeno**: arma él mismo el `pass.json`, calcula los hashes de sus propios iconos y firma únicamente ese manifest. Firmar hashes a ciegas convertiría el endpoint en un oráculo de firma, donde cualquiera podría hacerse firmar un pase inventado con el certificado de Apple.
 
@@ -30,7 +30,7 @@ nadie lo use como servicio de firma ajeno.
 
 No se guarda nada del documento en ninguno de los dos caminos: la request entra, se firma y se responde. Los logs de invocación de Workers están apagados (`wrangler.toml`); si algo falla con un error 5xx queda solo el mensaje del error, sin los datos. No hay base de datos, ni cuentas, ni cookies, ni analítica en la página, ni un solo pedido a otro dominio.
 
-Lo único que queda es un **contador**: cada firma exitosa suma un evento en Workers Analytics Engine con una sola palabra, el camino (`sign` o `pass`). No lleva IP, ni datos, ni serial, ni nada que permita saber de quién es el pase; sirve para saber cuántos pases se generaron. Cuenta pases firmados, no pases agregados a Wallet: eso no se puede ver sin que el teléfono le hable al servidor, y no queremos que lo haga.
+Lo único que queda es un **contador**: cada firma exitosa suma un evento en Workers Analytics Engine con una sola palabra, `sign`. No lleva IP, ni datos, ni serial, ni nada que permita saber de quién es el pase; sirve para saber cuántos pases se generaron. Cuenta pases firmados, no pases agregados a Wallet: eso no se puede ver sin que el teléfono le hable al servidor, y no queremos que lo haga.
 
 ## El pase
 
@@ -55,7 +55,7 @@ public/                 la PWA entera, y lo que también usa el servidor:
   icons/                mark.svg es el icono del DNI: la página lo pinta como máscara CSS y de ahí salen los PNG
   vendor/               ZXing, copiado por `npm run vendor` (no entra en git)
 server/pkpass.mjs       firma PKCS#7 sobre WebCrypto, sin dependencias
-server/index.mjs        servidor local: estáticos + /api/sign + /api/pass + /api/health
+server/index.mjs        servidor local: estáticos + /api/sign + /api/health
 worker/index.mjs        el mismo endpoint en Cloudflare Workers
 certs/                  wwdr.pem, signerCert.pem, signerKey.pem (no entran en git)
 ```

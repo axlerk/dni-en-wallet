@@ -129,23 +129,7 @@
       <button class="cta" id="addBtn" type="button" disabled aria-live="polite"><span class="cta-ico" aria-hidden="true"></span><span id="addBtnText">Agregar a Apple Wallet</span></button>
       <p class="fine">Para firmar el pase, los datos del documento viajan al servidor; la foto no. No se guarda nada. Si estás en modo pantalla de inicio y no aparece la hoja de Wallet, abrí esta página en Safari.</p>
       <div class="status" id="buildStatus" hidden></div>
-      <!-- Camino de respaldo: nunca se usa sin permiso, porque manda la imagen de la tarjeta al servidor -->
-      <div class="status warn consent" id="serverConsent" role="alertdialog" aria-labelledby="serverConsentText" hidden>
-        <p id="serverConsentText">No se pudo armar el pase en el teléfono. ¿Lo armamos en el servidor? Para eso viaja también la imagen de la tarjeta, no solo los datos. No se guarda nada.</p>
-        <div class="consent-actions">
-          <button class="consent-yes" id="consentYes" type="button">Enviar al servidor</button>
-          <button class="consent-no" id="consentNo" type="button">No, gracias</button>
-        </div>
-      </div>
     </section>
-
-    <!-- Hidden top-level form POST: the most reliable way for Safari to show the "Add to Wallet" sheet -->
-    <form id="passForm" method="post" action="api/pass" enctype="application/x-www-form-urlencoded" hidden>
-      <input type="hidden" name="fields" id="pf_fields">
-      <input type="hidden" name="strip1x" id="pf_strip1x">
-      <input type="hidden" name="strip2x" id="pf_strip2x">
-      <input type="hidden" name="strip3x" id="pf_strip3x">
-    </form>
   </main>
 
   <!-- Qué pasa con los datos, en concreto y sin adornos -->
@@ -154,7 +138,7 @@
     <ul>
       <li><b>En tu teléfono y solo ahí:</b> la cámara, el recorte, la lectura del código (PDF417 o QR) y el armado de la imagen del pase.</li>
       <li><b>Lo que viaja al servidor:</b> <span id="privacyUpload">todos los datos del formulario (apellido, nombres, número, sexo, fechas, ejemplar, trámite, CUIL, nacionalidad y el texto del código leído) y un hash de cada imagen, pero no la foto</span>, para poder firmar el pase con el certificado de Apple. La clave privada no puede vivir en el navegador, por eso hace falta ese paso.</li>
-      <li><b>Si el armado en el teléfono falla:</b> se puede armar en el servidor, pero para eso viaja también la imagen de la tarjeta. Nunca pasa solo: la página te pregunta antes y, si decís que no, no sale nada.</li>
+      <li><b>Si el armado en el teléfono falla:</b> la página muestra un error y no hace nada más. No hay un camino de respaldo que suba la imagen de la tarjeta: la foto no sale del teléfono en ningún caso.</li>
       <li><b>Lo que se guarda de tus datos:</b> nada. La request entra, se firma y se responde. No hay base de datos, ni archivos, ni cuentas, ni cookies. Si el servidor falla, queda solo el mensaje del error, sin tus datos.</li>
       <li><b>Lo que se cuenta:</b> cuántos pases se firman. Cada firma suma uno a un contador, sin IP, sin datos y sin nada que diga de quién es el pase.</li>
       <li><b>Lo que no hay:</b> analítica en la página, rastreadores, fuentes ni scripts de terceros. La página no hace un solo pedido fuera de este dominio.</li>

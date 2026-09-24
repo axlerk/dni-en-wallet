@@ -6,7 +6,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createPkpass, parsePassForm, fromBase64, signClientPass } from './pkpass.mjs';
+import { fromBase64, signClientPass } from './pkpass.mjs';
 import { PASS_ASSETS_B64 } from '../public/pass-assets.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -19,10 +19,9 @@ const cfg = {
   teamId: process.env.TEAM_ID || 'ABCDE12345',
   orgName: process.env.ORG_NAME || 'DNI en Wallet',
   certDir: path.resolve(ROOT, process.env.CERT_DIR || 'certs'),
-  maxBody: 20 * 1024 * 1024,
 };
 
-// ---------- Certificados (se leen una vez; si faltan, el servidor arranca igual y /api/pass devuelve 503) ----------
+// ---------- Certificados (se leen una vez; si faltan, el servidor arranca igual y /api/sign devuelve 503) ----------
 // Dos fuentes: archivos PEM en CERT_DIR (local) o variables WWDR_PEM_B64 / SIGNER_CERT_PEM_B64 / SIGNER_KEY_PEM_B64
 // con el PEM en base64 (mismas que usa el Worker). Las variables tienen prioridad. La clave va sin passphrase.
 let certs = null;
@@ -40,10 +39,6 @@ try {
 
 // Assets fijos del pase (icono obligatorio, logo opcional), embebidos para no depender de fs
 const ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
-
-export function createPass(fields, strips) {
-  return createPkpass({ cfg, certs, assets: ASSETS, fields, strips });
-}
 
 // ---------- HTTP ----------
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.json': 'application/json' };
@@ -72,17 +67,6 @@ const server = http.createServer(async (req, res) => {
       });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       return res.end(payload);
-    }
-    if (req.method === 'POST' && url.pathname === '/api/pass') {
-      const { fields, strips } = parsePassForm((await readBody(req, cfg.maxBody)).toString('utf8'));
-      const { bytes, serial } = await createPass(fields, strips);
-      res.writeHead(200, {
-        'Content-Type': 'application/vnd.apple.pkpass',
-        'Content-Disposition': `attachment; filename="${serial}.pkpass"`,
-        'Content-Length': bytes.length,
-        'Cache-Control': 'no-store',
-      });
-      return res.end(Buffer.from(bytes));
     }
     if (req.method === 'GET' && url.pathname === '/api/health') {
       res.writeHead(200, { 'Content-Type': 'application/json' });

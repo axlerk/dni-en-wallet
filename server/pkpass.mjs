@@ -10,8 +10,8 @@
  */
 
 // Lo que también necesita el navegador (zip, manifest, hashes) vive en public/pkpass-build.js.
-export { utf8, concat, fromBase64, zipStore, buildManifest, sha256hex, dataUrlToPng, passSerial } from '../public/pkpass-build.js';
-import { utf8, concat, fromBase64, zipStore, buildManifest, passSerial, dataUrlToPng, sha1hex } from '../public/pkpass-build.js';
+export { utf8, concat, fromBase64, sha256hex, passSerial } from '../public/pkpass-build.js';
+import { utf8, concat, fromBase64, passSerial, sha1hex } from '../public/pkpass-build.js';
 
 const sha1 = async (u8) => new Uint8Array(await crypto.subtle.digest('SHA-1', u8));
 
@@ -123,8 +123,8 @@ export async function signManifest(manifestBytes, { wwdrPem, signerCertPem, sign
  *
  * Entonces: el cliente manda los campos y los hashes de las tres imágenes del strip; el servidor arma él
  * mismo pass.json, calcula los hashes de sus propios iconos y del pass.json, y firma ese manifest.
- * Lo único que puede elegir quien llama es el texto de los campos y la imagen del documento, igual que en
- * /api/pass. La foto sigue sin salir del teléfono: de ella solo viaja un sha1.
+ * Lo único que puede elegir quien llama es el texto de los campos. La foto nunca sale del teléfono: de ella
+ * solo viaja un sha1, y no hay ningún otro camino que suba algo más.
  */
 const STRIP_FILES = ['strip.png', 'strip@2x.png', 'strip@3x.png'];
 const isSha1 = (h) => typeof h === 'string' && /^[0-9a-f]{40}$/.test(h);
@@ -156,32 +156,3 @@ export async function signClientPass({ cfg, certs, assets, fields, strips }) {
 // Vive en public/ para que la PWA arme la misma vista previa con el mismo pass.json (una sola fuente de verdad).
 import { clean, buildPassJson } from '../public/pass-json.js';
 
-/** Body application/x-www-form-urlencoded → {fields, strips}. */
-export function parsePassForm(body) {
-  const p = new URLSearchParams(body);
-  let fields;
-  try { fields = JSON.parse(p.get('fields') || '{}'); } catch { throw Object.assign(new Error('fields no es JSON'), { status: 400 }); }
-  return { fields, strips: { strip1x: p.get('strip1x'), strip2x: p.get('strip2x'), strip3x: p.get('strip3x') } };
-}
-
-/**
- * Arma y firma el pase. cfg: {passTypeId, teamId, orgName}; certs: {wwdrPem, signerCertPem, signerKeyPem} (strings PEM);
- * assets: {nombre: Uint8Array} con icon/logo. Devuelve {bytes, serial}.
- */
-export async function createPkpass({ cfg, certs, assets, fields, strips }) {
-  if (!certs) throw Object.assign(new Error('Faltan certificados'), { status: 503 });
-  if (!clean(fields.apellido) || !clean(fields.nombres) || !clean(fields.dni)) throw Object.assign(new Error('apellido, nombres y dni son obligatorios'), { status: 400 });
-
-  const serial = await passSerial(clean(fields.dni), clean(fields.ejemplar), cfg.passTypeId);
-  const files = {
-    ...assets,
-    'strip.png': dataUrlToPng(strips.strip1x),
-    'strip@2x.png': dataUrlToPng(strips.strip2x),
-    'strip@3x.png': dataUrlToPng(strips.strip3x),
-    'pass.json': utf8(JSON.stringify(buildPassJson(cfg, fields, serial))),
-  };
-  const manifestBytes = await buildManifest(files);
-  files['manifest.json'] = manifestBytes;
-  files['signature'] = await signManifest(manifestBytes, certs);
-  return { bytes: zipStore(files), serial };
-}

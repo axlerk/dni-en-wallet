@@ -91,12 +91,6 @@ body.cam-open{overflow:hidden}
 .status.ok{border-color:color-mix(in srgb,var(--good) 45%,var(--line));color:var(--good)}
 .status.warn{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));color:var(--warn)}
 .status.bad{border-color:color-mix(in srgb,var(--bad) 45%,var(--line));color:var(--bad)}
-.consent p{margin:0 0 10px}
-.consent-actions{display:flex;gap:8px;flex-wrap:wrap}
-.consent-actions button{font:inherit;font-size:14px;font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer}
-.consent-yes{border:0;color:#fff;background:var(--warn)}
-.consent-no{border:1px solid var(--line);background:var(--panel);color:var(--ink-2)}
-.consent-actions button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 .status.busy::before{content:"";display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;margin-right:8px;vertical-align:-1px;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.status.busy::before{animation:none}}

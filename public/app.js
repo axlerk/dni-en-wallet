@@ -1,7 +1,8 @@
 /* DNI en Wallet — frontend en JS puro.
  * Flujo: foto frente → foto dorso (el PDF417 se busca en las dos caras) → encuadre (arrastrar / pellizcar) → revisar datos → strip (frente|dorso) → POST → .pkpass
  * Todo ocurre en el teléfono, incluido el armado del .pkpass: al servidor solo se le manda el manifest (hashes)
- * para que lo firme con el certificado de Apple. El camino viejo (subir la imagen a /api/pass) queda de respaldo.
+ * para que lo firme con el certificado de Apple. La foto nunca sale del teléfono; si el armado local falla,
+ * se muestra un error en vez de mandarla.
  */
 import { buildPassJson, frontRowFields, COLORS } from './pass-json.js';
 import { zipStore, sha1hex, utf8, fromBase64 } from './pkpass-build.js';
@@ -862,8 +863,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
   // Safari abre la hoja "Agregar a Wallet" al recibir application/vnd.apple.pkpass.
   // ---------- Armar el pase en el teléfono ----------
   // El pase se arma acá: al servidor viajan los datos del formulario y el hash de cada imagen, la foto no.
-  // Si algo de este camino falla, queda el de antes (POST de la imagen a /api/pass), pero solo con permiso:
-  // ese camino sí manda la imagen de la tarjeta, y la página promete que no sale del teléfono.
+  // No hay camino de respaldo: si esto falla, se muestra un error en vez de subir la imagen.
   const PASS_ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
 
   const canvasBytes = (canvas) => new Promise((resolve, reject) => {
@@ -916,19 +916,9 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     location.href = path;
   }
 
-  /** Camino de respaldo: sube la imagen y el servidor arma y firma. */
-  function submitViaServer() {
-    $('pf_fields').value = JSON.stringify(state.fields);
-    $('pf_strip1x').value = composeStrip(1).toDataURL('image/png');
-    $('pf_strip2x').value = composeStrip(2).toDataURL('image/png');
-    $('pf_strip3x').value = composeStrip(3).toDataURL('image/png');
-    $('passForm').submit();
-  }
-
   async function submitPass() {
     readForm();
     setStatus($('buildStatus'), '', '');
-    $('serverConsent').hidden = true;
     state.building = true;
     state.datosEnviados = false;
     updateCta();
@@ -936,12 +926,14 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
       const { bytes, serial } = await buildPassLocally();
       await deliverToWallet(bytes, serial);
     } catch (e) {
-      // No se cae al servidor en silencio: ese camino sube la imagen, así que primero se pregunta.
       console.warn('[pase] armado local falló:', e?.message || e);
       state.building = false;
       updateCta();
-      $('serverConsent').hidden = false;
-      $('consentYes').focus();
+      // La foto nunca sale del teléfono, así que un fallo acá no tiene camino de respaldo: solo reintentar.
+      const msg = state.datosEnviados
+        ? 'No se pudo armar el pase en el teléfono. Los datos del formulario ya habían viajado para pedir la firma y no se guardan. Probá de nuevo con «Agregar a Apple Wallet».'
+        : 'No se pudo armar el pase en el teléfono. Probá de nuevo con «Agregar a Apple Wallet».';
+      setStatus($('buildStatus'), msg, 'bad');
       return;
     }
     releaseAfterWallet();
@@ -952,33 +944,7 @@ import { PASS_ASSETS_B64 } from './pass-assets.js';
     setTimeout(() => { state.building = false; updateCta(); }, 4000);
   }
 
-  function onConsentYes() {
-    $('serverConsent').hidden = true;
-    state.building = true;
-    updateCta();
-    try {
-      submitViaServer();
-    } catch (e) {
-      state.building = false;
-      updateCta();
-      setStatus($('buildStatus'), 'No se pudo armar el pase: ' + (e?.message || e), 'bad');
-      return;
-    }
-    releaseAfterWallet();
-  }
-
-  function onConsentNo() {
-    $('serverConsent').hidden = true;
-    // Solo decimos «nada» si el armado falló antes de pedir la firma: si no, los datos ya viajaron.
-    const msg = state.datosEnviados
-      ? 'No se mandó la imagen. Los datos del formulario ya habían viajado para pedir la firma y no se guardan. Podés volver a intentarlo con «Agregar a Apple Wallet».'
-      : 'No se mandó nada al servidor. Podés volver a intentarlo en el teléfono con «Agregar a Apple Wallet».';
-    setStatus($('buildStatus'), msg, 'warn');
-  }
-
   // ---------- Wiring ----------
-  $('consentYes').addEventListener('click', onConsentYes);
-  $('consentNo').addEventListener('click', onConsentNo);
   for (const which of ['front', 'back']) {
     $(which + 'File').addEventListener('change', (e) => onPhoto(which, e.target.files[0]));
     $(which + 'Cta').addEventListener('click', () => openCamera(which));

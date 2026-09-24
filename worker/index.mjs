@@ -2,13 +2,12 @@
  * así que acá solo llegan /api/* y lo que no matchea ningún archivo.
  * Nada se persiste. Certificados por secrets en base64: WWDR_PEM_B64, SIGNER_CERT_PEM_B64, SIGNER_KEY_PEM_B64.
  */
-import { createPkpass, parsePassForm, fromBase64, signClientPass } from '../server/pkpass.mjs';
+import { fromBase64, signClientPass } from '../server/pkpass.mjs';
 import { PASS_ASSETS_B64 } from '../public/pass-assets.js';
 
 const ASSETS = Object.fromEntries(Object.entries(PASS_ASSETS_B64).map(([k, v]) => [k, fromBase64(v)]));
 const td = new TextDecoder();
 const toBase64 = (u8) => btoa(String.fromCharCode(...u8));
-const MAX_BODY = 20 * 1024 * 1024;
 
 function certsFrom(env) {
   if (!env.WWDR_PEM_B64 || !env.SIGNER_CERT_PEM_B64 || !env.SIGNER_KEY_PEM_B64) return null;
@@ -34,7 +33,7 @@ export default {
       if (req.method === 'GET' && url.pathname === '/api/health') {
         return json({ ok: true, signing: Boolean(certsFrom(env)), passTypeId: cfg.passTypeId, teamId: cfg.teamId, orgName: cfg.orgName });
       }
-      // Camino principal: el teléfono arma el pase y acá solo entran los campos y los hashes del strip.
+      // El teléfono arma el pase entero; acá solo entran los campos del formulario y los hashes del strip, nunca la imagen.
       if (req.method === 'POST' && url.pathname === '/api/sign') {
         // Solo desde nuestra propia página: no frena a curl, pero sí evita que otro sitio use el firmador
         // desde el navegador de un visitante.
@@ -55,23 +54,6 @@ export default {
           manifest: td.decode(out.manifestBytes),
           signature: toBase64(out.signature),
           serial: out.serial,
-        });
-      }
-      // Camino de respaldo: sube la imagen ya armada y el servidor hace todo.
-      if (req.method === 'POST' && url.pathname === '/api/pass') {
-        const len = Number(req.headers.get('content-length') || 0);
-        if (len > MAX_BODY) return text('Body demasiado grande', 413);
-        const { fields, strips } = parsePassForm(await req.text());
-        const { bytes, serial } = await createPkpass({ cfg, certs: certsFrom(env), assets: ASSETS, fields, strips });
-        contar(env, 'pass');
-        return new Response(bytes, {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/vnd.apple.pkpass',
-            'Content-Disposition': `attachment; filename="${serial}.pkpass"`,
-            'Content-Length': String(bytes.length),
-            'Cache-Control': 'no-store',
-          },
         });
       }
       return text('Not found', 404);
