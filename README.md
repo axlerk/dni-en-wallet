@@ -40,7 +40,9 @@ Estilo `storeCard`, con los colores de la bandera: celeste de fondo, el logo en 
 
 *(datos de ejemplo, DNI en el rango 95.000.000–99.999.999 sin asignar)*
 
-Wallet dibuja adelante una sola fila de cuatro campos y descarta el resto en silencio, así que adelante van apellido, nombres, nacimiento y vencimiento, más sexo y ejemplar en el encabezado y el número de DNI en el logo. Todo lo demás vive en el dorso, que se abre con el botón «•••»: el aviso legal, el nombre completo, el número de trámite, el CUIL, la nacionalidad, las fechas, el código PDF417 crudo y un enlace a Mi Argentina.
+Wallet dibuja adelante una sola fila de cuatro campos y descarta el resto en silencio, así que adelante van apellido, nombres, nacimiento y vencimiento, más sexo y ejemplar en el encabezado y el número de DNI en el logo. Todo lo demás vive en el dorso, que se abre con el botón «•••»: el aviso legal, el nombre completo, el número de trámite, el CUIL, la nacionalidad, las fechas y el código PDF417 crudo.
+
+El dorso también tiene un acceso directo a la app **Mi Argentina**, para cuando hace falta el DNI Digital oficial y no solo esta copia de referencia.
 
 ## Estructura
 
