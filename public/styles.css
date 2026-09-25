@@ -1,41 +1,43 @@
 :root{
-  --bg:#eef1f5; --panel:#fff; --panel-2:#f6f8fb;
-  --ink:#151b26; --ink-2:#4a5768; --ink-3:#7c8798;
-  --line:#dbe1ea; --accent:#2f6fb3; --accent-soft:#dbe9f7;
-  --good:#2e8b57; --warn:#c26a2c; --bad:#b23b3b;
-  --card-a:#1c4f82; --card-b:#12314f;
-  --shadow:0 1px 2px rgba(20,27,38,.06),0 12px 30px -16px rgba(20,27,38,.35);
+  --bg:#faf7f2; --panel:#fff; --panel-2:#f3efe7;
+  --ink:#18140f; --ink-2:#5c5750; --ink-3:#8c8781;
+  --line:#e6e0d5; --accent:#b45309; --accent-soft:#fdecc8;
+  --good:#2f855a; --warn:#b7791f; --bad:#c53030;
+  --shadow:0 1px 2px rgba(24,20,15,.06),0 12px 30px -16px rgba(24,20,15,.35);
+  --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  --mark-bg:rgba(24,20,15,.05); --mark-border:rgba(24,20,15,.12);
 }
 @media (prefers-color-scheme:dark){:root{
-  --bg:#0c1016; --panel:#141a23; --panel-2:#0f151d;
-  --ink:#eef2f8; --ink-2:#aab6c7; --ink-3:#78859a;
-  --line:#232d3a; --accent:#5c9fe0; --accent-soft:#16283c;
-  --good:#4bbd82; --warn:#d98a4a; --bad:#e06767;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 16px 40px -20px rgba(0,0,0,.7);
+  --bg:#0d0c0b; --panel:#161513; --panel-2:#0f0e0c;
+  --ink:#f3eee5; --ink-2:#a8a29b; --ink-3:#6f6a63;
+  --line:#2a2724; --accent:#f59e0b; --accent-soft:#2a1d09;
+  --good:#5fbf77; --warn:#e0a458; --bad:#e2685f;
+  --shadow:0 1px 2px rgba(0,0,0,.5),0 16px 40px -20px rgba(0,0,0,.8);
+  --mark-bg:rgba(255,255,255,.08); --mark-border:rgba(255,255,255,.14);
 }}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"Public Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom);touch-action:manipulation}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,system-ui,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom);touch-action:manipulation}
 h1,h2{margin:0;letter-spacing:-.01em}
 b{font-weight:700}
 
-.top{padding:calc(14px + env(safe-area-inset-top)) 18px 14px;background:linear-gradient(160deg,var(--card-a),var(--card-b));color:#eaf1f8}
+.top{padding:calc(14px + env(safe-area-inset-top)) 18px 14px;background:var(--bg);border-bottom:1px solid var(--line);color:var(--ink)}
 .brand{display:flex;align-items:center;gap:12px;max-width:560px;margin:0 auto}
 .brand h1{font-size:20px;font-weight:800}
-.brand .sub{margin:0;font-size:12.5px;color:rgba(234,241,248,.72)}
-.brand .sub b{color:#ffd88a}
+.brand .sub{margin:0;font-size:12.5px;color:var(--ink-2)}
+.brand .sub b{color:var(--accent)}
 /* Tirar para actualizar */
 .ptr{position:fixed;top:0;left:0;right:0;z-index:40;display:flex;align-items:center;justify-content:center;gap:8px;
-  height:56px;margin-top:-56px;font-size:13px;font-weight:600;color:#eaf1f8;background:var(--card-b);
+  height:56px;margin-top:-56px;font-size:13px;font-weight:600;color:var(--ink);background:var(--panel);border-bottom:1px solid var(--line);
   padding-top:env(safe-area-inset-top);pointer-events:none}
 .ptr-ico{width:15px;height:15px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;transition:transform .15s}
 .ptr.ready .ptr-ico{transform:rotate(180deg)}
 .ptr.spin .ptr-ico{animation:spin .8s linear infinite}
 /* El icono es un SVG (icons/mark.svg) usado como máscara: una sola fuente para la página y para los PNG del teléfono,
-   y el color lo pone el CSS, así el mismo glifo sirve en blanco arriba y en amarillo en el pase. */
-.mark{width:34px;height:34px;border-radius:9px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);flex:none;position:relative}
-.mark::before{content:"";position:absolute;inset:0;background:#eaf1f8;
+   y el color lo pone el CSS, así el mismo glifo sirve en dorado arriba y en el pase. */
+.mark{width:34px;height:34px;border-radius:9px;background:var(--mark-bg);border:1px solid var(--mark-border);flex:none;position:relative}
+.mark::before{content:"";position:absolute;inset:0;background:var(--accent);
   -webkit-mask:url(icons/mark.svg) center/62% no-repeat;mask:url(icons/mark.svg) center/62% no-repeat}
 .mark.sm{width:26px;height:26px;border-radius:6px}
 
@@ -49,7 +51,7 @@ b{font-weight:700}
 .step-h .toggle input{width:17px;height:17px;accent-color:var(--accent);margin:0}
 /* El paso "Dorso" nunca se esconde: es opcional, no condicional. Lo único que cambia es el texto,
    y `.needs-back` lo pone el script para el caso que el CSS no puede saber: el frente no traía código. */
-.step-h .opt{margin-left:auto;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line);border-radius:999px;padding:3px 8px}
+.step-h .opt{margin-left:auto;font:11px/1 var(--mono);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:6px;padding:4px 8px}
 #step-back.needs-back #backOpt,
 #step-back.needs-back #backHintOpt,
 #step-back:not(.needs-back) #backHintNeed{display:none}
@@ -66,7 +68,7 @@ b{font-weight:700}
 .capture:has(canvas:not([hidden])) .capture-hint{display:block}
 .capture-actions{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:8px}
 .capture:has(canvas:not([hidden])) .capture-actions{align-self:end;flex-direction:row;margin-bottom:10px}
-.capture-cta{font:inherit;font-weight:600;color:var(--accent);background:var(--panel);padding:10px 14px;border-radius:999px;border:1px solid var(--line);font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.capture-cta{font:inherit;font-weight:600;color:var(--ink);background:var(--panel);padding:10px 14px;border-radius:999px;border:1px solid var(--line);font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
 /* Cámara antes de la foto, flecha de repetir después: el estado ya está en el DOM, no hace falta tocarlo desde el script */
 .capture-cta::before{content:"";width:17px;height:17px;flex:none;background:currentColor;
   -webkit-mask:url(icons/camera.svg) center/contain no-repeat;mask:url(icons/camera.svg) center/contain no-repeat}
@@ -98,7 +100,7 @@ body.cam-open{overflow:hidden}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .f{display:flex;flex-direction:column;gap:4px}
 .f.span2{grid-column:1/-1}
-.f span{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.f span{font:11px/1 var(--mono);font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .f input,.f textarea,.f select{font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel-2);color:var(--ink);width:100%}
 .f select{appearance:none;-webkit-appearance:none;cursor:pointer;
   background-image:linear-gradient(45deg,transparent 50%,var(--ink-3) 50%),linear-gradient(135deg,var(--ink-3) 50%,transparent 50%);
@@ -107,14 +109,15 @@ body.cam-open{overflow:hidden}
 .f input:focus,.f textarea:focus,.f select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
 .f input[aria-invalid="true"]{border-color:var(--bad)}
 .f input[aria-invalid="true"]:focus{outline-color:var(--bad)}
-.f .err,.f .note{font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none}
+.f .err,.f .note{font-family:-apple-system,system-ui,sans-serif;font-size:11.5px;font-weight:600;letter-spacing:0;text-transform:none}
 .f .err{color:var(--bad)}
 .f .note{color:var(--ink-3)}
 
 /* ---- pass preview (storeCard style) ---- */
 /* Celeste de la bandera + logo en blanco, igual que el pase firmado */
+/* 375pt es el ancho real del pase: el tamaño @1x que Apple documenta para la strip, que va de borde a borde */
 .pass{--pass-bg:#74acdf;--pass-ink:#fff;--pass-label:#e2f0fa;--pass-accent:#f6b40e;--pass-ink-2:rgba(255,255,255,.72);
-  border-radius:13px;overflow:hidden;background:radial-gradient(120% 80% at 85% -10%,rgba(255,255,255,.22),transparent 62%),linear-gradient(168deg,#7fb3e2,#6aa3d4);color:var(--pass-ink);box-shadow:var(--shadow);margin:6px 0 16px}
+  max-width:375px;border-radius:13px;overflow:hidden;background:radial-gradient(120% 80% at 85% -10%,rgba(255,255,255,.22),transparent 62%),linear-gradient(168deg,#7fb3e2,#6aa3d4);color:var(--pass-ink);box-shadow:var(--shadow);margin:20px auto 28px}
 /* Igual que el logo del pase: glifo sin recuadro, en amarillo */
 .pass .mark{background:none;border:0;box-shadow:none;width:30px;height:30px}
 .pass .mark::before{background:var(--pass-accent);-webkit-mask-size:100%;mask-size:100%}
@@ -146,10 +149,10 @@ body.cam-open{overflow:hidden}
 .p-bar .code{margin-top:3px;font-family:ui-monospace,Menlo,monospace;font-size:9px;color:#666;word-break:break-all}
 .p-back{padding-bottom:14px}
 
-.cta{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;font:inherit;font-size:16.5px;font-weight:700;padding:15px;border:0;border-radius:13px;color:#fff;cursor:pointer;
-  background:linear-gradient(180deg,#1e90ff,#0a63d6);box-shadow:0 1px 0 rgba(255,255,255,.28) inset,0 8px 20px -8px rgba(10,99,214,.75);transition:transform .12s ease,box-shadow .2s ease,filter .2s ease}
-.cta:hover:not(:disabled){filter:brightness(1.06)}
-.cta:active:not(:disabled){transform:translateY(1px);box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 4px 12px -8px rgba(10,99,214,.8)}
+.cta{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;font:inherit;font-size:16.5px;font-weight:700;padding:15px;border:0;border-radius:999px;color:var(--bg);cursor:pointer;
+  background:var(--ink);transition:transform .12s ease,filter .2s ease}
+.cta:hover:not(:disabled){filter:brightness(.92)}
+.cta:active:not(:disabled){transform:translateY(1px)}
 .cta:disabled{background:var(--panel-2);color:var(--ink-3);box-shadow:none;cursor:not-allowed;border:1px solid var(--line)}
 .cta:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 /* Silueta de tarjeta, para que el botón se lea como acción y no como texto */
