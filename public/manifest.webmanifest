@@ -1,6 +1,6 @@
 {
   "name": "DNI en Wallet",
-  "short_name": "DNI Wallet",
+  "short_name": "DNI en Wallet",
   "description": "Copia de referencia del DNI como pase de Apple Wallet. Sin validez oficial.",
   "start_url": "./",
   "scope": "./",
